@@ -1,0 +1,627 @@
+// The table surface: pan/zoom, pointer interaction and per-item DOM, ported from legacy/dnd-table.html.
+// Reads items from the RoomStore (confirmed + pending), layers this client's in-progress drag and other
+// players' live drag previews on top, and commits one patch when a drag ends.
+import { aabb, clamp, normDeg, snapOffset, unionBox } from '../lib/geometry';
+import type { RoomStore } from '../sync/room.svelte';
+import type { ItemRow } from '../sync/types';
+import type { Ui } from './ui.svelte';
+import { prefs } from './ui.svelte';
+
+export interface StageEls {
+  stage: HTMLElement;
+  world: HTMLElement;
+  maps: HTMLElement;
+  items: HTMLElement;
+  pings: HTMLElement;
+  grid: HTMLElement;
+}
+
+interface Override {
+  x?: number;
+  y?: number;
+  rot?: number;
+}
+
+const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+
+export class Stage {
+  view = { x: 0, y: 0, k: 1 };
+  private els = new Map<string, HTMLElement>();
+  private overrides = new Map<string, Override>();
+  private shown = new Map<string, { x: number; y: number; rot: number }>();
+  private pointers = new Map<number, { x: number; y: number }>();
+  private pan: { x: number; y: number; vx: number; vy: number } | null = null;
+  private pinch: { d: number; k: number; wx: number; wy: number } | null = null;
+  private drag: { id: string; pid: number; dx: number; dy: number; moved: boolean } | null = null;
+  private rotating: { id: string; pid: number; cx: number; cy: number; a0: number; r0: number } | null = null;
+  private spaceHeld = false;
+  private anim = 0;
+  private unsub: (() => void)[] = [];
+  private saveViewTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(private el: StageEls, private store: RoomStore, private ui: Ui, private onFiles: (files: File[], at: { x: number; y: number }) => void) {
+    this.unsub.push(store.state.subscribe((kind, ids) => {
+      if (kind === 'items') this.render(ids);
+      if (kind === 'room') this.renderGrid();
+    }));
+    this.unsub.push(store.onPreview((id) => this.kickAnim(id)));
+    this.unsub.push(store.onPing((p) => this.drawPing(p.x, p.y, p.color)));
+    this.bind();
+    const saved = prefs.load<{ x: number; y: number; k: number } | null>(`view:${store.backend.roomId}`, null);
+    if (saved && Number.isFinite(saved.k)) {
+      this.view = saved;
+      this.applyView();
+    } else {
+      requestAnimationFrame(() => this.fitView());
+    }
+    this.render();
+    this.renderGrid();
+  }
+
+  // ---- permissions (mirrors RLS so the UI doesn't offer what the server will refuse) ----
+
+  canEdit(it: ItemRow) {
+    return this.store.isGM || ((it.kind === 'char' || it.kind === 'sticker') && !it.locked && !it.hidden);
+  }
+
+  canSelect(it: ItemRow) {
+    return this.store.isGM || it.kind !== 'map';
+  }
+
+  // ---- view -----------------------------------------------------------------------
+
+  private stageSize() {
+    const r = this.el.stage.getBoundingClientRect();
+    return { w: r.width, h: r.height, l: r.left, t: r.top };
+  }
+
+  applyView() {
+    const { x, y, k } = this.view;
+    this.el.world.style.transform = `translate(${x}px,${y}px) scale(${k})`;
+    this.el.world.style.setProperty('--inv', String(1 / k));
+    this.el.stage.style.backgroundPosition = `${x}px ${y}px`;
+    if (this.saveViewTimer) clearTimeout(this.saveViewTimer);
+    this.saveViewTimer = setTimeout(() => prefs.store(`view:${this.store.backend.roomId}`, this.view), 500);
+  }
+
+  fitView() {
+    const { w, h } = this.stageSize();
+    const all = this.store.state.all();
+    const maps = all.filter((i) => i.kind === 'map');
+    const box = unionBox((maps.length ? maps : all.filter((i) => i.kind !== 'fog')).map((i) => aabb(this.geom(i))));
+    if (box && box.r > box.l && box.b > box.t) {
+      this.view.k = clamp(Math.min(w / (box.r - box.l), h / (box.b - box.t)) * 0.92, 0.01, 8);
+      this.view.x = w / 2 - box.cx * this.view.k;
+      this.view.y = h / 2 - box.cy * this.view.k;
+    } else {
+      this.view = { x: w / 2, y: h / 2, k: 1 };
+    }
+    this.applyView();
+  }
+
+  toWorld(cx: number, cy: number) {
+    const s = this.stageSize();
+    return { x: (cx - s.l - this.view.x) / this.view.k, y: (cy - s.t - this.view.y) / this.view.k };
+  }
+
+  viewCenter() {
+    const { w, h } = this.stageSize();
+    return { x: (w / 2 - this.view.x) / this.view.k, y: (h / 2 - this.view.y) / this.view.k };
+  }
+
+  zoomAt(px: number, py: number, f: number) {
+    const k = clamp(this.view.k * f, 0.01, 8);
+    const real = k / this.view.k;
+    this.view.x = px - (px - this.view.x) * real;
+    this.view.y = py - (py - this.view.y) * real;
+    this.view.k = k;
+    this.applyView();
+  }
+
+  zoomCenter(f: number) {
+    const s = this.stageSize();
+    this.zoomAt(s.w / 2, s.h / 2, f);
+  }
+
+  centerOn(id: string) {
+    const it = this.store.item(id);
+    if (!it) return;
+    const g = this.geom(it);
+    const { w, h } = this.stageSize();
+    this.view.x = w / 2 - g.x * this.view.k;
+    this.view.y = h / 2 - g.y * this.view.k;
+    this.applyView();
+  }
+
+  isOnScreen(id: string) {
+    const it = this.store.item(id);
+    if (!it) return false;
+    const g = this.geom(it);
+    const s = this.stageSize();
+    const px = this.view.x + g.x * this.view.k, py = this.view.y + g.y * this.view.k;
+    return px > 0 && px < s.w && py > 0 && py < s.h;
+  }
+
+  // ---- geometry of an item as currently displayed ----------------------------------
+
+  /** Position/rotation including this client's drag and others' animated previews. */
+  geom(it: ItemRow) {
+    const p = it.props;
+    const o = this.overrides.get(it.id);
+    const s = this.shown.get(it.id);
+    return {
+      kind: it.kind,
+      x: o?.x ?? s?.x ?? num(p.x),
+      y: o?.y ?? s?.y ?? num(p.y),
+      rot: o?.rot ?? s?.rot ?? num(p.rot),
+      size: num(p.size, 70),
+      aspect: num(p.aspect, 1),
+    };
+  }
+
+  // ---- rendering ------------------------------------------------------------------
+
+  renderGrid() {
+    const g = this.store.settings.grid;
+    const el = this.el.grid;
+    if (!g.on) {
+      el.style.display = 'none';
+      return;
+    }
+    const half = Math.ceil(10000 / g.size) * g.size;
+    Object.assign(el.style, {
+      display: 'block', left: `${-half}px`, top: `${-half}px`, width: `${half * 2}px`, height: `${half * 2}px`,
+      backgroundSize: `${g.size}px ${g.size}px`,
+    });
+  }
+
+  /** Re-render the given items (all when omitted), then restack. */
+  render(ids?: Set<string>) {
+    const targets = ids ?? new Set([...this.store.state.ids(), ...this.els.keys()]);
+    for (const id of targets) {
+      const it = this.store.item(id);
+      if (!it || it.kind === 'fog') {
+        this.els.get(id)?.remove();
+        this.els.delete(id);
+        this.overrides.delete(id);
+        this.shown.delete(id);
+        if (this.ui.selectedId === id) this.ui.select(null);
+        continue;
+      }
+      this.updateEl(it);
+    }
+    this.restack();
+  }
+
+  refreshSelection() {
+    for (const id of this.els.keys()) {
+      const it = this.store.item(id);
+      if (it) this.updateEl(it);
+    }
+  }
+
+  private restack() {
+    const rows = [...this.els.keys()].map((id) => this.store.item(id)).filter((r): r is ItemRow => !!r);
+    rows.sort((a, b) => a.z - b.z || (a.id < b.id ? -1 : 1));
+    rows.forEach((r, i) => {
+      const el = this.els.get(r.id);
+      if (el) el.style.zIndex = String(i + 1);
+    });
+  }
+
+  private makeEl(it: ItemRow) {
+    const el = document.createElement('div');
+    el.className = `item ${it.kind}`;
+    el.dataset.id = it.id;
+    if (it.kind === 'char') el.innerHTML = '<div class="disc"><img alt=""></div><div class="tag"></div>';
+    else if (it.kind === 'map') el.innerHTML = '<img class="mapimg" alt="">';
+    else if (it.props.emoji) el.innerHTML = '<span class="emo"></span>';
+    else el.innerHTML = '<img class="simg" alt="">';
+    (it.kind === 'map' ? this.el.maps : this.el.items).appendChild(el);
+    this.els.set(it.id, el);
+    return el;
+  }
+
+  private setImg(img: HTMLImageElement, file: string | undefined) {
+    if (!file) {
+      img.removeAttribute('src');
+      img.dataset.file = '';
+      return;
+    }
+    if (img.dataset.file === file) return;
+    img.dataset.file = file;
+    const hit = this.store.assets.peek(file);
+    if (hit) img.src = hit;
+    else {
+      img.removeAttribute('src');
+      this.store.assets.url(file).then((u) => {
+        if (img.dataset.file === file) img.src = u;
+      }, () => img.classList.add('broken'));
+    }
+  }
+
+  private updateEl(it: ItemRow) {
+    const el = this.els.get(it.id) ?? this.makeEl(it);
+    const p = it.props;
+    const g = this.geom(it);
+    const selected = it.id === this.ui.selectedId;
+    el.style.setProperty('--s', `${g.size}px`);
+    el.style.width = `${g.size}px`;
+    el.classList.toggle('sel', selected);
+    el.classList.toggle('locked', it.locked);
+    el.classList.toggle('hidden-gm', it.hidden);
+    el.classList.toggle('noedit', !this.canEdit(it));
+
+    if (it.kind === 'char') {
+      el.style.height = `${g.size}px`;
+      el.style.transform = `translate(${g.x}px,${g.y}px) translate(-50%,-50%)`;
+      const disc = el.querySelector<HTMLElement>('.disc')!;
+      disc.style.borderColor = String(p.color ?? '#ffffff');
+      const img = disc.querySelector('img')!;
+      this.setImg(img, p.img);
+      const zoom = num(p.zoom, 1);
+      img.style.transform = `translate(${num(p.ox)}%,${num(p.oy)}%) scale(${zoom * (p.flip ? -1 : 1)}, ${zoom})`;
+      el.querySelector('.tag')!.textContent = String(p.name ?? '');
+    } else if (it.kind === 'map') {
+      el.style.height = `${g.size * g.aspect}px`;
+      el.style.transform = `translate(${g.x}px,${g.y}px) translate(-50%,-50%) rotate(${g.rot}deg)`;
+      const img = el.firstElementChild as HTMLImageElement;
+      this.setImg(img, p.img);
+      img.style.transform = p.flip ? 'scaleX(-1)' : '';
+    } else {
+      el.style.transform = `translate(${g.x}px,${g.y}px) translate(-50%,-50%) rotate(${g.rot}deg)`;
+      const child = el.firstElementChild as HTMLElement;
+      child.style.transform = p.flip ? 'scaleX(-1)' : '';
+      if (p.emoji) {
+        child.textContent = String(p.emoji);
+        child.style.fontSize = `${g.size * 0.85}px`;
+      } else this.setImg(child as HTMLImageElement, p.img);
+    }
+
+    const wantsHandle = selected && it.kind !== 'char' && !it.locked && this.canEdit(it);
+    let h = el.querySelector(':scope > .rot-handle');
+    if (wantsHandle && !h) {
+      h = document.createElement('div');
+      h.className = 'rot-handle';
+      h.textContent = '↻';
+      (h as HTMLElement).title = 'ลากเพื่อหมุน';
+      el.appendChild(h);
+    } else if (!wantsHandle && h) h.remove();
+  }
+
+  // ---- other players' live drags: ease toward the latest preview -----------------------
+
+  private kickAnim(id: string) {
+    if (this.overrides.has(id)) return;
+    if (!this.store.previews.has(id)) {
+      this.shown.delete(id);
+      const it = this.store.item(id);
+      if (it) this.updateEl(it);
+      return;
+    }
+    if (!this.shown.has(id)) {
+      const it = this.store.item(id);
+      if (!it) return;
+      const g = this.geom(it);
+      this.shown.set(id, { x: g.x, y: g.y, rot: g.rot });
+    }
+    if (!this.anim) this.anim = requestAnimationFrame(this.tick);
+  }
+
+  private tick = () => {
+    this.anim = 0;
+    const now = Date.now();
+    let more = false;
+    for (const [id, cur] of this.shown) {
+      const pv = this.store.previews.get(id);
+      if (!pv || now - pv.at > 1500 || this.overrides.has(id)) {
+        this.store.previews.delete(id);
+        this.shown.delete(id);
+        const it = this.store.item(id);
+        if (it) this.updateEl(it);
+        continue;
+      }
+      cur.x += (pv.x - cur.x) * 0.35;
+      cur.y += (pv.y - cur.y) * 0.35;
+      if (pv.rot !== undefined) cur.rot += normDeg(pv.rot - cur.rot) * 0.35;
+      const it = this.store.item(id);
+      if (it) this.updateEl(it);
+      more = true;
+    }
+    if (more) this.anim = requestAnimationFrame(this.tick);
+  };
+
+  // ---- pings ------------------------------------------------------------------------
+
+  ping(x: number, y: number) {
+    this.drawPing(x, y, this.store.meMember?.color ?? '#ffd24a');
+    this.store.sendPing(x, y);
+  }
+
+  private drawPing(x: number, y: number, color: string) {
+    for (const c of ['a', 'b']) {
+      const d = document.createElement('div');
+      d.className = `ping ${c}`;
+      d.style.left = `${x}px`;
+      d.style.top = `${y}px`;
+      const sz = 170 / this.view.k;
+      d.style.width = `${sz}px`;
+      d.style.height = `${sz}px`;
+      d.style.borderWidth = `${5 / this.view.k}px`;
+      d.style.borderColor = color;
+      this.el.pings.appendChild(d);
+      setTimeout(() => d.remove(), 1700);
+    }
+  }
+
+  // ---- item commands (selection panel / keyboard) ----------------------------------------
+
+  rotateSel(deg: number) {
+    const it = this.selected();
+    if (!it || it.kind === 'char' || it.locked || !this.canEdit(it)) return;
+    this.store.patch(it.id, { props: { rot: normDeg(num(it.props.rot) + deg) } }, 150);
+  }
+
+  deleteSel() {
+    const it = this.selected();
+    if (!it || !this.canEdit(it)) return;
+    this.store.del(it.id);
+    this.ui.select(null);
+  }
+
+  selected() {
+    return this.ui.selectedId ? this.store.item(this.ui.selectedId) : undefined;
+  }
+
+  // ---- input ------------------------------------------------------------------------
+
+  private bind() {
+    const st = this.el.stage;
+    const on = <K extends keyof HTMLElementEventMap>(t: EventTarget, ev: K | string, fn: (e: never) => void, opts?: AddEventListenerOptions) => {
+      t.addEventListener(ev, fn as EventListener, opts);
+      this.unsub.push(() => t.removeEventListener(ev, fn as EventListener, opts));
+    };
+
+    on(st, 'pointerdown', (e: PointerEvent) => this.onDown(e));
+    on(st, 'pointermove', (e: PointerEvent) => this.onMove(e));
+    on(st, 'pointerup', (e: PointerEvent) => this.onUp(e));
+    on(st, 'pointercancel', (e: PointerEvent) => this.onUp(e));
+    on(st, 'wheel', (e: WheelEvent) => {
+      e.preventDefault();
+      const s = this.stageSize();
+      this.zoomAt(e.clientX - s.l, e.clientY - s.t, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));
+    }, { passive: false });
+    on(st, 'dblclick', (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest('.tools, .showui, .overlay-ui') || t.closest('.item:not(.map)')) return;
+      const w = this.toWorld(e.clientX, e.clientY);
+      this.ping(w.x, w.y);
+    });
+    for (const ev of ['dragenter', 'dragover']) {
+      on(st, ev, (e: DragEvent) => {
+        if ([...(e.dataTransfer?.types ?? [])].includes('Files')) {
+          e.preventDefault();
+          st.classList.add('dragover');
+        }
+      });
+    }
+    for (const ev of ['dragleave', 'drop']) on(st, ev, () => st.classList.remove('dragover'));
+    on(st, 'drop', (e: DragEvent) => {
+      e.preventDefault();
+      const files = [...(e.dataTransfer?.files ?? [])];
+      if (files.length) this.onFiles(files, this.toWorld(e.clientX, e.clientY));
+    });
+
+    on(document, 'keydown', (e: KeyboardEvent) => this.onKey(e));
+    on(document, 'keyup', (e: KeyboardEvent) => {
+      if (e.key === ' ') this.releaseSpace();
+    });
+    on(window, 'blur', () => this.releaseSpace());
+  }
+
+  private releaseSpace() {
+    this.spaceHeld = false;
+    this.el.stage.classList.remove('spacehand');
+  }
+
+  private startPinch() {
+    const [a, b] = [...this.pointers.values()];
+    const s = this.stageSize();
+    const cx = (a.x + b.x) / 2 - s.l, cy = (a.y + b.y) / 2 - s.t;
+    this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, k: this.view.k, wx: (cx - this.view.x) / this.view.k, wy: (cy - this.view.y) / this.view.k };
+  }
+
+  private doPinch() {
+    const [a, b] = [...this.pointers.values()];
+    const s = this.stageSize();
+    const cx = (a.x + b.x) / 2 - s.l, cy = (a.y + b.y) / 2 - s.t;
+    const k = clamp((this.pinch!.k * Math.hypot(a.x - b.x, a.y - b.y)) / this.pinch!.d, 0.01, 8);
+    this.view.k = k;
+    this.view.x = cx - this.pinch!.wx * k;
+    this.view.y = cy - this.pinch!.wy * k;
+    this.applyView();
+  }
+
+  private onDown(e: PointerEvent) {
+    const target = e.target as HTMLElement;
+    if (target.closest('.tools, .showui, .overlay-ui')) return;
+    if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
+    const handMode = e.button === 1 || this.spaceHeld || this.ui.tool === 'hand';
+    const st = this.el.stage;
+
+    if (!handMode && this.ui.tool === 'ping' && e.button === 0 && this.pointers.size === 0) {
+      const w = this.toWorld(e.clientX, e.clientY);
+      this.ping(w.x, w.y);
+      return;
+    }
+    if (!handMode && this.ui.tool === 'select' && !this.drag && !this.rotating && this.pointers.size === 0) {
+      const hEl = target.closest('.rot-handle');
+      const sel = this.selected();
+      if (hEl && sel && this.canEdit(sel)) {
+        const s = this.stageSize();
+        const g = this.geom(sel);
+        const cx = s.l + this.view.x + g.x * this.view.k, cy = s.t + this.view.y + g.y * this.view.k;
+        this.rotating = { id: sel.id, pid: e.pointerId, cx, cy, a0: (Math.atan2(e.clientY - cy, e.clientX - cx) * 180) / Math.PI, r0: g.rot };
+        st.setPointerCapture(e.pointerId);
+        e.preventDefault();
+        return;
+      }
+      const el = target.closest<HTMLElement>('.item');
+      const it = el ? this.store.item(el.dataset.id!) : undefined;
+      if (it && this.canSelect(it)) {
+        this.ui.select(it.id);
+        if (it.locked || !this.canEdit(it)) return;
+        const w = this.toWorld(e.clientX, e.clientY);
+        const g = this.geom(it);
+        this.drag = { id: it.id, pid: e.pointerId, dx: w.x - g.x, dy: w.y - g.y, moved: false };
+        st.setPointerCapture(e.pointerId);
+        e.preventDefault();
+        return;
+      }
+    }
+    this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    st.setPointerCapture(e.pointerId);
+    if (this.pointers.size === 1) {
+      if (handMode) {
+        this.pan = { x: e.clientX, y: e.clientY, vx: this.view.x, vy: this.view.y };
+        st.classList.add('panning');
+        e.preventDefault();
+      } else if (this.ui.tool === 'select') this.ui.select(null);
+    } else if (this.pointers.size === 2) {
+      this.pan = null;
+      this.startPinch();
+    }
+  }
+
+  private onMove(e: PointerEvent) {
+    if (this.rotating && e.pointerId === this.rotating.pid) {
+      const r0 = this.rotating;
+      const ang = (Math.atan2(e.clientY - r0.cy, e.clientX - r0.cx) * 180) / Math.PI;
+      let r = normDeg(r0.r0 + (ang - r0.a0));
+      if (e.shiftKey) r = Math.round(r / 15) * 15;
+      else {
+        const n = Math.round(r / 45) * 45;
+        if (Math.abs(r - n) < 3) r = n;
+      }
+      this.setOverride(r0.id, { rot: normDeg(r) });
+      const it = this.store.item(r0.id);
+      if (it) {
+        const g = this.geom(it);
+        this.store.sendDrag([{ id: it.id, x: g.x, y: g.y, rot: g.rot }]);
+      }
+      return;
+    }
+    if (this.drag && e.pointerId === this.drag.pid) {
+      const it = this.store.item(this.drag.id);
+      if (!it) return;
+      const w = this.toWorld(e.clientX, e.clientY);
+      let x = w.x - this.drag.dx, y = w.y - this.drag.dy;
+      if (it.kind === 'map' && this.ui.snap && !e.altKey) {
+        const others = this.store.state.all().filter((o) => o.kind === 'map' && o.id !== it.id).map((o) => this.geom(o));
+        const d = snapOffset({ ...this.geom(it), x, y }, others, 14 / this.view.k);
+        x += d.dx;
+        y += d.dy;
+      }
+      this.drag.moved = true;
+      this.setOverride(it.id, { x, y });
+      this.store.sendDrag([{ id: it.id, x, y }]);
+      return;
+    }
+    if (!this.pointers.has(e.pointerId)) return;
+    this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (this.pointers.size >= 2 && this.pinch) this.doPinch();
+    else if (this.pan && this.pointers.size === 1) {
+      this.view.x = this.pan.vx + (e.clientX - this.pan.x);
+      this.view.y = this.pan.vy + (e.clientY - this.pan.y);
+      this.applyView();
+    }
+  }
+
+  private onUp(e: PointerEvent) {
+    if (this.rotating && e.pointerId === this.rotating.pid) {
+      const { id } = this.rotating;
+      const rot = this.overrides.get(id)?.rot;
+      this.rotating = null;
+      if (rot !== undefined) this.store.patch(id, { props: { rot } });
+      this.clearOverride(id);
+      return;
+    }
+    if (this.drag && e.pointerId === this.drag.pid) {
+      const { id, moved } = this.drag;
+      this.drag = null;
+      const o = this.overrides.get(id);
+      const it = this.store.item(id);
+      if (moved && o && it) {
+        // Dropping something lifts it to the top of its layer.
+        const z = it.kind === 'map' ? undefined : this.store.topZ(it.kind);
+        this.store.patch(id, { props: { x: o.x, y: o.y }, ...(z !== undefined && z - 1 > it.z ? { z } : {}) });
+      }
+      this.clearOverride(id);
+      return;
+    }
+    if (!this.pointers.has(e.pointerId)) return;
+    this.pointers.delete(e.pointerId);
+    this.pinch = null;
+    if (this.pointers.size === 1) {
+      const p = [...this.pointers.values()][0];
+      this.pan = this.el.stage.classList.contains('panning') || this.ui.tool === 'hand' || this.spaceHeld
+        ? { x: p.x, y: p.y, vx: this.view.x, vy: this.view.y }
+        : null;
+    } else if (this.pointers.size === 0) {
+      this.pan = null;
+      this.el.stage.classList.remove('panning');
+    }
+  }
+
+  private setOverride(id: string, o: Override) {
+    this.overrides.set(id, { ...this.overrides.get(id), ...o });
+    this.shown.delete(id);
+    const it = this.store.item(id);
+    if (it) this.updateEl(it);
+  }
+
+  private clearOverride(id: string) {
+    this.overrides.delete(id);
+    const it = this.store.item(id);
+    if (it) this.updateEl(it);
+  }
+
+  private onKey(e: KeyboardEvent) {
+    const t = e.target as HTMLElement;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (e.key === ' ') {
+      e.preventDefault();
+      if (!this.spaceHeld) {
+        this.spaceHeld = true;
+        this.el.stage.classList.add('spacehand');
+      }
+      return;
+    }
+    if (k === 'h') this.ui.toggleAll();
+    else if (k === 't') this.ui.toolsHidden = !this.ui.toolsHidden;
+    else if (k === 'f') this.fitView();
+    else if (k === 'v' || k === '1') this.ui.tool = 'select';
+    else if (k === '2') this.ui.tool = 'hand';
+    else if (k === '3') this.ui.tool = 'ping';
+    else if (k === 'q') this.rotateSel(e.shiftKey ? -90 : -15);
+    else if (k === 'e') this.rotateSel(e.shiftKey ? 90 : 15);
+    else if (k === '+' || k === '=') this.zoomCenter(1.3);
+    else if (k === '-') this.zoomCenter(1 / 1.3);
+    else if (k === 'escape') this.ui.select(null);
+    else if ((k === 'delete' || k === 'backspace') && this.ui.selectedId) {
+      e.preventDefault();
+      this.deleteSel();
+    }
+  }
+
+  destroy() {
+    for (const u of this.unsub) u();
+    this.unsub = [];
+    if (this.anim) cancelAnimationFrame(this.anim);
+    if (this.saveViewTimer) clearTimeout(this.saveViewTimer);
+    for (const el of this.els.values()) el.remove();
+    this.els.clear();
+  }
+}
