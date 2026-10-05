@@ -228,4 +228,22 @@ describe('kick', () => {
     await as(db, gmId).query(`update public.room_members set status = 'banned' where user_id = $1`, [playerId]);
     expect(await errCode(p.rpc('request_join', [slug, 'Player', '#46a758']))).toBe('42501');
   });
+
+  it('a banned player cannot erase their own row to dodge the ban', async () => {
+    const p = as(db, playerId);
+    // RLS makes a refused delete match nothing instead of raising.
+    await p.query('delete from public.room_members where user_id = $1 and room_id = $2', [playerId, room]);
+    const [row] = await as(db, gmId).query<{ status: string }>(
+      'select status from public.room_members where user_id = $1 and room_id = $2', [playerId, room]);
+    expect(row?.status).toBe('banned');
+    expect(await errCode(p.rpc('request_join', [slug, 'Player again', '#46a758']))).toBe('42501');
+  });
+
+  it('a pending or approved member can still leave on their own', async () => {
+    const leaver = await newUser(db);
+    const l = as(db, leaver);
+    await l.rpc('request_join', [slug, 'Leaver', '#2db4a8']);
+    await l.query('delete from public.room_members where user_id = $1 and room_id = $2', [leaver, room]);
+    expect(await as(db, gmId).query('select 1 from public.room_members where user_id = $1', [leaver])).toHaveLength(0);
+  });
 });
