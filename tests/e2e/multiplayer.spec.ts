@@ -1,28 +1,8 @@
 // GM and player in separate browser contexts against the real Supabase dev project.
 import { expect, test, type Page } from '@playwright/test';
+import { dropImage } from './helpers';
 
 test.skip(!process.env.VITE_SUPABASE_URL, 'Supabase is not configured (.env.local)');
-
-/** Drops a generated PNG onto the stage, as if dragged from the desktop. */
-async function dropImage(page: Page, name: string, w: number, h: number, color: string) {
-  await page.evaluate(async ({ name, w, h, color }) => {
-    const c = document.createElement('canvas');
-    c.width = w;
-    c.height = h;
-    const x = c.getContext('2d')!;
-    x.fillStyle = color;
-    x.fillRect(0, 0, w, h);
-    x.fillStyle = '#000';
-    x.font = '60px sans-serif';
-    x.fillText(name, 20, 80);
-    const blob = await new Promise<Blob>((r) => c.toBlob((b) => r(b!), 'image/png'));
-    const dt = new DataTransfer();
-    dt.items.add(new File([blob], `${name}.png`, { type: 'image/png' }));
-    const st = document.querySelector('.stage')!;
-    const r = st.getBoundingClientRect();
-    st.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }));
-  }, { name, w, h, color });
-}
 
 const transformOf = (page: Page, sel: string) => page.locator(sel).first().evaluate((el) => (el as HTMLElement).style.transform);
 

@@ -20,6 +20,14 @@ export interface Ping {
   color: string;
 }
 
+/** Where the GM asks everyone to look: the centre and the world-space size they want visible. */
+export interface ViewTarget {
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+}
+
 export class RoomStore {
   readonly state: RoomState;
   readonly ops: OpQueue;
@@ -41,6 +49,7 @@ export class RoomStore {
   private previewListeners = new Set<(id: string) => void>();
   private pingListeners = new Set<(p: Ping) => void>();
   private rollListeners = new Set<(r: import('./types').RollRow) => void>();
+  private viewListeners = new Set<(v: ViewTarget) => void>();
   private resyncing = false;
 
   constructor(readonly backend: Backend, private me: PresenceInfo, private onError: (msg: string) => void) {
@@ -76,6 +85,7 @@ export class RoomStore {
   }
 
   get isGM() {
+    void this.membersVersion;
     return this.state.members.get(this.userId)?.role === 'gm';
   }
 
@@ -162,6 +172,13 @@ export class RoomStore {
     } else if (event === 'ping') {
       const p = payload as Ping;
       for (const l of this.pingListeners) l(p);
+    } else if (event === 'view') {
+      // The live topic is writable by every member, so only follow views that claim to come from a GM.
+      const p = payload as Partial<ViewTarget> & { u?: string };
+      const v = { cx: p.cx, cy: p.cy, w: p.w, h: p.h };
+      if (!p.u || p.u === this.userId || this.state.members.get(p.u)?.role !== 'gm') return;
+      if (![v.cx, v.cy, v.w, v.h].every((n) => typeof n === 'number' && Number.isFinite(n)) || v.w! <= 0 || v.h! <= 0) return;
+      for (const l of this.viewListeners) l(v as ViewTarget);
     }
   }
 
@@ -173,6 +190,12 @@ export class RoomStore {
   onPing(fn: (p: Ping) => void) {
     this.pingListeners.add(fn);
     return () => this.pingListeners.delete(fn);
+  }
+
+  /** Fires when a GM asks everyone to look at one spot (Sync View). */
+  onView(fn: (v: ViewTarget) => void) {
+    this.viewListeners.add(fn);
+    return () => this.viewListeners.delete(fn);
   }
 
   /** Fires for rolls made by others after the room loaded (for the on-table toast). */
@@ -188,6 +211,10 @@ export class RoomStore {
   sendDrag(items: { id: string; x: number; y: number; rot?: number }[]) {
     if (!items.length) return;
     this.bus.put(`drag:${items.map((i) => i.id).join(',')}`, 'drag', { u: this.userId, items });
+  }
+
+  sendView(v: ViewTarget) {
+    this.bus.immediate('view', { u: this.userId, ...v });
   }
 
   sendPing(x: number, y: number) {
@@ -212,10 +239,10 @@ export class RoomStore {
     this.ops.del(id);
   }
 
-  /** Top of the stacking order for the item's layer group (maps vs everything else). */
+  /** Top of the stacking order for the item's layer group (maps, fog, or everything else). */
   topZ(kind: ItemRow['kind']) {
-    const isMap = kind === 'map';
-    return this.state.maxZ((k) => (k === 'map') === isMap) + 1;
+    const group = (k: ItemRow['kind']) => (k === 'map' ? 'map' : k === 'fog' ? 'fog' : 'items');
+    return this.state.maxZ((k) => group(k) === group(kind)) + 1;
   }
 
   async roll(r: NewRoll) {

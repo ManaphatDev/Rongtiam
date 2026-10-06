@@ -35,7 +35,7 @@ export class TableActions {
   routeFiles(files: File[], pos?: Pos) {
     const imgs = files.filter(isImg);
     if (!imgs.length) return;
-    if (this.ui.tab === 'map' && this.store.isGM) void this.addMaps(imgs, pos);
+    if ((this.ui.tab === 'map' || this.ui.tab === 'fog') && this.store.isGM) void this.addMaps(imgs, pos);
     else if (this.ui.tab === 'chars') void this.addChars(imgs, '', pos);
     else void this.addToLib(imgs, true, pos);
   }

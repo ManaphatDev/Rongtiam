@@ -7,6 +7,7 @@
   import type { Tab, Ui } from './ui.svelte';
   import SelectionPanel from './panels/SelectionPanel.svelte';
   import MapPane from './panels/MapPane.svelte';
+  import FogPane from './panels/FogPane.svelte';
   import CharsPane from './panels/CharsPane.svelte';
   import StickersPane from './panels/StickersPane.svelte';
   import DicePane from './panels/DicePane.svelte';
@@ -14,7 +15,7 @@
 
   let { store, ui, slug = 'local', gmKey = $bindable() }: { store: RoomStore; ui: Ui; slug?: string; gmKey?: string } = $props();
 
-  let stageEl: HTMLElement, worldEl: HTMLElement, mapsEl: HTMLElement, itemsEl: HTMLElement, pingsEl: HTMLElement, gridEl: HTMLElement;
+  let stageEl: HTMLElement, worldEl: HTMLElement, mapsEl: HTMLElement, itemsEl: HTMLElement, fogEl: HTMLElement, pingsEl: HTMLElement, gridEl: HTMLElement;
   let stage = $state<Stage | null>(null);
   let actions = $state<TableActions | null>(null);
   const unsub: (() => void)[] = [];
@@ -23,6 +24,19 @@
     { id: 'map', label: 'แมพ' }, { id: 'chars', label: 'ตัวละคร' }, { id: 'stickers', label: 'สติกเกอร์' },
     { id: 'dice', label: 'ลูกเต๋า' }, { id: 'players', label: 'ผู้เล่น' },
   ];
+  // Fog is the GM's tab, right after the map.
+  const tabs = $derived(store.isGM ? [TABS[0], { id: 'fog' as Tab, label: 'หมอก' }, ...TABS.slice(1)] : TABS);
+
+  function pickTab(id: Tab) {
+    ui.tab = id;
+    // The fog tool belongs to the fog tab: going elsewhere goes back to picking things up.
+    if (id === 'fog') ui.tool = 'fog';
+    else if (ui.tool === 'fog') ui.tool = 'select';
+  }
+  function fogTool() {
+    ui.tool = 'fog';
+    ui.tab = 'fog';
+  }
 
   const pending = $derived.by(() => {
     void store.membersVersion;
@@ -39,7 +53,7 @@
   let dismissed = $state(new Set<string>());
 
   onMount(() => {
-    const s = new Stage({ stage: stageEl, world: worldEl, maps: mapsEl, items: itemsEl, pings: pingsEl, grid: gridEl }, store, ui,
+    const s = new Stage({ stage: stageEl, world: worldEl, maps: mapsEl, items: itemsEl, fog: fogEl, pings: pingsEl, grid: gridEl }, store, ui,
       (files, at) => actions?.routeFiles(files, at));
     stage = s;
     actions = new TableActions(store, s, ui);
@@ -78,6 +92,24 @@
     stage?.refreshSelection();
   });
 
+  // An unfinished polygon or stroke is dropped when the tool or shape type changes.
+  $effect(() => {
+    void ui.tool;
+    void ui.fogTool;
+    stage?.fogTool.cancel();
+  });
+
+  // Drawing fog works on fog shapes only, so a selected token or map is let go.
+  $effect(() => {
+    if (ui.tool !== 'fog' || !ui.selectedId) return;
+    if (store.item(ui.selectedId)?.kind !== 'fog') ui.select(null);
+  });
+
+  // Hidden fog drawing tools make no sense for a demoted/non-GM viewer.
+  $effect(() => {
+    if (!store.isGM && ui.tool === 'fog') ui.tool = 'select';
+  });
+
   onDestroy(() => {
     for (const u of unsub) u();
     stage?.destroy();
@@ -86,11 +118,13 @@
 
 <div class="app" class:noside={ui.sideHidden} class:notools={ui.toolsHidden}>
   <main class="stage" class:tool-select={ui.tool === 'select'} class:tool-hand={ui.tool === 'hand'} class:tool-ping={ui.tool === 'ping'}
+    class:tool-fog={ui.tool === 'fog'} class:gmfog={store.isGM && !ui.playerView} class:playerview={store.isGM && ui.playerView}
     bind:this={stageEl} aria-label="โต๊ะเกม">
     <div class="world" bind:this={worldEl}>
       <div class="layer" id="mapsLayer" bind:this={mapsEl}></div>
       <div id="gridEl" style="display:none" bind:this={gridEl}></div>
       <div class="layer" id="items" bind:this={itemsEl}></div>
+      <div class="layer" id="fog" bind:this={fogEl}></div>
       <div class="layer" id="pings" bind:this={pingsEl}></div>
     </div>
 
@@ -148,6 +182,11 @@
       <button class="tool" aria-pressed={ui.tool === 'ping'} title="ชี้จุดให้เพื่อนดู (กด 3)" onclick={() => (ui.tool = 'ping')}>
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /></svg>ชี้จุด
       </button>
+      {#if store.isGM}
+        <button class="tool" aria-pressed={ui.tool === 'fog'} title="วาดหมอก (กด 4)" onclick={fogTool}>
+          <svg viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7 8.6 4.7 4.7 0 0 0 7 18zM4 21h16" /></svg>หมอก
+        </button>
+      {/if}
       <hr />
       <button class="tool" title="ซูมเข้า (+)" onclick={() => stage?.zoomCenter(1.3)}>
         <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>ซูม+
@@ -158,6 +197,11 @@
       <button class="tool" title="ปรับให้เห็นแมพทั้งหมด (F)" onclick={() => stage?.fitView()}>
         <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>พอดีจอ
       </button>
+      {#if store.isGM}
+        <button class="tool" title="พาผู้เล่นทุกคนมาดูตรงที่คุณกำลังดูอยู่ (ซูมและตำแหน่งเดียวกัน)" onclick={() => stage?.syncView()}>
+          <svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>พาดู
+        </button>
+      {/if}
       <hr />
       <button class="tool" title="ซ่อน/แสดงแผงด้านข้าง" onclick={() => (ui.sideHidden = !ui.sideHidden)}>
         <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></svg>ซ่อนแผง
@@ -174,9 +218,9 @@
       <h1>{roomName || 'โรงเตี๊ยม'}</h1>
       <small class={`conn ${store.status}`}><i></i>{store.status === 'live' ? `ออนไลน์ ${store.online.length} คน` : store.status === 'offline' ? 'ออฟไลน์' : 'กำลังเชื่อมต่อ'}</small>
     </div>
-    <div class="tabs five" role="tablist" aria-label="เมนู">
-      {#each TABS as t (t.id)}
-        <button class="tab" role="tab" aria-selected={ui.tab === t.id} onclick={() => (ui.tab = t.id)}>
+    <div class="tabs" class:five={tabs.length === 5} class:six={tabs.length === 6} role="tablist" aria-label="เมนู">
+      {#each tabs as t (t.id)}
+        <button class="tab" role="tab" aria-selected={ui.tab === t.id} onclick={() => pickTab(t.id)}>
           {t.label}{#if t.id === 'players' && pending.length}<span class="badge">{pending.length}</span>{/if}
         </button>
       {/each}
@@ -186,6 +230,7 @@
         <SelectionPanel {store} {ui} {stage} {actions} />
         <section class="pane on">
           {#if ui.tab === 'map'}<MapPane {store} {ui} {stage} {actions} />
+          {:else if ui.tab === 'fog' && store.isGM}<FogPane {store} {ui} {stage} />
           {:else if ui.tab === 'chars'}<CharsPane {store} {ui} {stage} {actions} />
           {:else if ui.tab === 'stickers'}<StickersPane {store} {actions} />
           {:else if ui.tab === 'dice'}<DicePane {store} />

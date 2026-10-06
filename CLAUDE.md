@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 "โรงเตี๊ยม" (Rongtiam): a realtime multiplayer virtual tabletop (in the spirit of Owlbear Rodeo) with a Thai UI. Vite + TypeScript + Svelte 5 frontend (static, deployed to Vercel) on Supabase (Postgres + RLS, Realtime broadcast/presence, Storage, anonymous auth). Keep user-facing strings in Thai. `legacy/dnd-table.html` is the original single-file app; it is the reference the table code was ported from — don't edit it.
 
-The roadmap (phases 2–5: fog, 3D dice, ruleset plugins + D&D 2024 sheets, character builder) lives in the approved plan; phase 1 (foundation) is what exists now.
+The roadmap (phases 3–5: 3D dice, ruleset plugins + D&D 2024 sheets, character builder) lives in the approved plan; phases 1 (foundation) and 2 (fog, hidden items, Sync View) are what exists now.
 
 ## Commands
 
@@ -40,13 +40,15 @@ Supabase config comes from `.env.local` (see `.env.example`). There is no Docker
 - `room.svelte.ts` `RoomStore`: wires backend + state + queue + bus + `AssetCache`; exposes `*Version` rune counters that Svelte `$derived` blocks read (`void store.itemsVersion`). Resyncs on channel rejoin, `online`, and tab visible after >30 s.
 - `backend.ts` interface; `src/supa/backend.ts` (Supabase) and `local.ts` (in-memory, dev `/local`).
 
-**Table** (`src/table/`): `Stage.ts` is the imperative port of the legacy IIFE (view transform with `--inv`, pointer/pinch/drag/rotate, map snapping via `lib/geometry.ts`). It renders from `store.item(id)` plus its own drag `overrides` and eased remote `previews`; a drag broadcasts throttled previews and commits **one** patch on pointerup (with `z = topZ` to lift non-maps). `canEdit`/`canSelect` mirror RLS so the UI never offers refused actions. Stacking is by `z` within the maps layer vs the items layer. `actions.ts` adds maps/chars/stickers: images go through `images.ts` (resize/re-encode, file named `<sha256>.<ext>`), upload once to the private `room-assets/<room>/` bucket, are cached in IndexedDB, and items reference the file name in `props.img`.
+**Table** (`src/table/`): `Stage.ts` is the imperative port of the legacy IIFE (view transform with `--inv`, pointer/pinch/drag/rotate, map snapping via `lib/geometry.ts`). It renders from `store.item(id)` plus its own drag `overrides` and eased remote `previews`; a drag broadcasts throttled previews and commits **one** patch on pointerup (with `z = topZ` to lift non-maps). `canEdit`/`canSelect` mirror RLS so the UI never offers refused actions. Stacking is by `z` within each layer group (maps, items, fog; `store.topZ`). Sync View: the GM sends `view` `{cx,cy,w,h}` on `live`; players fit that world area (only accepted from members whose role is gm). `actions.ts` adds maps/chars/stickers: images go through `images.ts` (resize/re-encode, file named `<sha256>.<ext>`), upload once to the private `room-assets/<room>/` bucket, are cached in IndexedDB, and items reference the file name in `props.img`.
+
+**Fog** (`src/fog/`): each fog item is one shape, `props {mode: 'add'|'cut', geom: int rings [[x0,y0,x1,y1,…],…]}`. `geometry.ts` (Clipper2 via `clipper2-ts`) folds shapes in `z` order into the visible fog (`computeFog`), builds rect/polygon/brush rings (brush: RDP → round offset → simplify, ≤ 4000 points; compacted ≤ 12 000) and hit-tests. `FogLayer` owns the fog layer above the items: `FogCanvas` paints it on a screen-sized canvas placed in world space (fog clipped to the view → feathered with the canvas shadow trick → filled with two drifting, opaque cloud textures from `clouds.ts`; ~15 fps drift, still under `prefers-reduced-motion`; GM at 45 % unless "ดูแบบผู้เล่น"), with SVG overlays for previews and the selected shape; `FogTool` handles GM drawing, picking and the local undo stack — deleted ids can never return (tombstones), so undo restores shapes under fresh ids. Fog is visual only: items under it are still sent to players; secrecy is `hidden`.
 
 **Routes**: `/` create/join, `/r/<slug>` (anonymous sign-in → optional `#gm=<key>` claim, fragment stripped → join form / waiting poll / table), `/local` (dev). Per-viewer prefs (view, snap, profile, recent rooms, GM keys) live in localStorage.
 
 ## Conventions
 
 - CSS tokens in `src/app.css` `:root`, redefined for dark mode under `prefers-color-scheme` (guarded by `:root:not([data-theme="light"])`) and `:root[data-theme="dark"]` — add new colours in all three.
-- Destructive buttons use `ui/TwoStepButton.svelte`. Keyboard shortcuts live in `Stage.onKey` (V/1, 2, 3, Space, F, H, T, Q/E, +/-, Esc, Delete); update tooltips and Thai help text with them.
+- Destructive buttons use `ui/TwoStepButton.svelte`. Keyboard shortcuts live in `Stage.onKey` (V/1, 2, 3, 4 = fog for GMs, Space, F, H, T, Q/E, +/-, Esc, Delete; with the fog tool: R/P/B/S shape, X add↔cut, Alt held = invert, Enter/Esc/Backspace for polygons, Ctrl+Z); update tooltips and Thai help text with them.
 - Real `<button>`s with `aria-pressed`/`aria-label`; respect `prefers-reduced-motion`.
 - Rolls use `lib/rand.ts` (`crypto`, rejection sampling).

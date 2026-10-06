@@ -1,8 +1,10 @@
 // The table surface: pan/zoom, pointer interaction and per-item DOM, ported from legacy/dnd-table.html.
 // Reads items from the RoomStore (confirmed + pending), layers this client's in-progress drag and other
 // players' live drag previews on top, and commits one patch when a drag ends.
+import { FogLayer } from '../fog/FogLayer';
+import { FogTool } from '../fog/FogTool';
 import { aabb, clamp, normDeg, snapOffset, unionBox } from '../lib/geometry';
-import type { RoomStore } from '../sync/room.svelte';
+import type { RoomStore, ViewTarget } from '../sync/room.svelte';
 import type { ItemRow } from '../sync/types';
 import type { Ui } from './ui.svelte';
 import { prefs } from './ui.svelte';
@@ -12,6 +14,7 @@ export interface StageEls {
   world: HTMLElement;
   maps: HTMLElement;
   items: HTMLElement;
+  fog: HTMLElement;
   pings: HTMLElement;
   grid: HTMLElement;
 }
@@ -38,11 +41,24 @@ export class Stage {
   private anim = 0;
   private unsub: (() => void)[] = [];
   private saveViewTimer: ReturnType<typeof setTimeout> | null = null;
+  private viewAnim = 0;
+  readonly fog: FogLayer;
+  readonly fogTool: FogTool;
 
   constructor(private el: StageEls, private store: RoomStore, private ui: Ui, private onFiles: (files: File[], at: { x: number; y: number }) => void) {
+    this.fog = new FogLayer(el.fog, store, ui);
+    this.fogTool = new FogTool(store, ui, this.fog, (x, y) => this.toWorld(x, y), () => this.view.k);
     this.unsub.push(store.state.subscribe((kind, ids) => {
-      if (kind === 'items') this.render(ids);
+      if (kind === 'items') {
+        this.render(ids);
+        this.fog.invalidate();
+      }
       if (kind === 'room') this.renderGrid();
+    }));
+    this.unsub.push(store.onView((v) => {
+      if (store.isGM) return;
+      this.followView(v);
+      ui.showToast('GM พาไปดูจุดนี้');
     }));
     this.unsub.push(store.onPreview((id) => this.kickAnim(id)));
     this.unsub.push(store.onPing((p) => this.drawPing(p.x, p.y, p.color)));
@@ -65,7 +81,7 @@ export class Stage {
   }
 
   canSelect(it: ItemRow) {
-    return this.store.isGM || it.kind !== 'map';
+    return this.store.isGM || (it.kind !== 'map' && it.kind !== 'fog');
   }
 
   // ---- view -----------------------------------------------------------------------
@@ -80,6 +96,8 @@ export class Stage {
     this.el.world.style.transform = `translate(${x}px,${y}px) scale(${k})`;
     this.el.world.style.setProperty('--inv', String(1 / k));
     this.el.stage.style.backgroundPosition = `${x}px ${y}px`;
+    const { w, h } = this.stageSize();
+    this.fog.setView(this.view, w, h);
     if (this.saveViewTimer) clearTimeout(this.saveViewTimer);
     this.saveViewTimer = setTimeout(() => prefs.store(`view:${this.store.backend.roomId}`, this.view), 500);
   }
@@ -123,6 +141,39 @@ export class Stage {
     this.zoomAt(s.w / 2, s.h / 2, f);
   }
 
+  /** GM: ask every player to look at what this view currently shows. */
+  syncView() {
+    const { w, h } = this.stageSize();
+    const c = this.viewCenter();
+    this.store.sendView({ cx: c.x, cy: c.y, w: w / this.view.k, h: h / this.view.k });
+    this.ui.showToast('ส่งมุมมองนี้ให้ผู้เล่นแล้ว');
+  }
+
+  /** Fit the requested world area into this (possibly smaller) screen, easing there unless motion is reduced. */
+  private followView(v: ViewTarget) {
+    const { w, h } = this.stageSize();
+    const k = clamp(Math.min(w / v.w, h / v.h), 0.01, 8);
+    const to = { x: w / 2 - v.cx * k, y: h / 2 - v.cy * k, k };
+    if (this.viewAnim) cancelAnimationFrame(this.viewAnim);
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.view = to;
+      this.applyView();
+      return;
+    }
+    const from = { ...this.view };
+    const t0 = performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - t0) / 350);
+      const f = 1 - (1 - t) ** 3;
+      // Zoom exponentially so the motion feels even at any scale.
+      const kk = from.k * (to.k / from.k) ** f;
+      this.view = { k: kk, x: from.x + (to.x - from.x) * f, y: from.y + (to.y - from.y) * f };
+      this.applyView();
+      this.viewAnim = t < 1 ? requestAnimationFrame(step) : 0;
+    };
+    this.viewAnim = requestAnimationFrame(step);
+  }
+
   centerOn(id: string) {
     const it = this.store.item(id);
     if (!it) return;
@@ -164,6 +215,7 @@ export class Stage {
   renderGrid() {
     const g = this.store.settings.grid;
     const el = this.el.grid;
+    this.fog.setUnit(g.size);
     if (!g.on) {
       el.style.display = 'none';
       return;
@@ -185,7 +237,7 @@ export class Stage {
         this.els.delete(id);
         this.overrides.delete(id);
         this.shown.delete(id);
-        if (this.ui.selectedId === id) this.ui.select(null);
+        if (!it && this.ui.selectedId === id) this.ui.select(null);
         continue;
       }
       this.updateEl(it);
@@ -194,6 +246,7 @@ export class Stage {
   }
 
   refreshSelection() {
+    this.fog.invalidate();
     for (const id of this.els.keys()) {
       const it = this.store.item(id);
       if (it) this.updateEl(it);
@@ -365,6 +418,10 @@ export class Stage {
   deleteSel() {
     const it = this.selected();
     if (!it || !this.canEdit(it)) return;
+    if (it.kind === 'fog') {
+      this.fogTool.deleteShape(it);
+      return;
+    }
     this.store.del(it.id);
     this.ui.select(null);
   }
@@ -394,6 +451,10 @@ export class Stage {
     on(st, 'dblclick', (e: MouseEvent) => {
       const t = e.target as HTMLElement;
       if (t.closest('.tools, .showui, .overlay-ui') || t.closest('.item:not(.map)')) return;
+      if (this.ui.tool === 'fog') {
+        this.fogTool.dblclick(e);
+        return;
+      }
       const w = this.toWorld(e.clientX, e.clientY);
       this.ping(w.x, w.y);
     });
@@ -411,6 +472,14 @@ export class Stage {
       const files = [...(e.dataTransfer?.files ?? [])];
       if (files.length) this.onFiles(files, this.toWorld(e.clientX, e.clientY));
     });
+
+    // The fog canvas covers exactly the stage, so it follows window and side-panel resizes.
+    const ro = new ResizeObserver(() => {
+      const { w, h } = this.stageSize();
+      this.fog.setView(this.view, w, h);
+    });
+    ro.observe(st);
+    this.unsub.push(() => ro.disconnect());
 
     on(document, 'keydown', (e: KeyboardEvent) => this.onKey(e));
     on(document, 'keyup', (e: KeyboardEvent) => {
@@ -454,6 +523,11 @@ export class Stage {
       this.ping(w.x, w.y);
       return;
     }
+    if (!handMode && this.ui.tool === 'fog' && e.button === 0 && this.pointers.size === 0 && this.fogTool.down(e)) {
+      st.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      return;
+    }
     if (!handMode && this.ui.tool === 'select' && !this.drag && !this.rotating && this.pointers.size === 0) {
       const hEl = target.closest('.rot-handle');
       const sel = this.selected();
@@ -494,6 +568,7 @@ export class Stage {
   }
 
   private onMove(e: PointerEvent) {
+    if (this.ui.tool === 'fog' && this.fogTool.move(e)) return;
     if (this.rotating && e.pointerId === this.rotating.pid) {
       const r0 = this.rotating;
       const ang = (Math.atan2(e.clientY - r0.cy, e.clientX - r0.cx) * 180) / Math.PI;
@@ -538,6 +613,7 @@ export class Stage {
   }
 
   private onUp(e: PointerEvent) {
+    if (this.fogTool.up(e)) return;
     if (this.rotating && e.pointerId === this.rotating.pid) {
       const { id } = this.rotating;
       const rot = this.overrides.get(id)?.rot;
@@ -589,6 +665,7 @@ export class Stage {
   private onKey(e: KeyboardEvent) {
     const t = e.target as HTMLElement;
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable) return;
+    if (this.fogTool.key(e)) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.toLowerCase();
     if (e.key === ' ') {
@@ -605,6 +682,7 @@ export class Stage {
     else if (k === 'v' || k === '1') this.ui.tool = 'select';
     else if (k === '2') this.ui.tool = 'hand';
     else if (k === '3') this.ui.tool = 'ping';
+    else if (k === '4' && this.store.isGM) this.ui.tool = 'fog';
     else if (k === 'q') this.rotateSel(e.shiftKey ? -90 : -15);
     else if (k === 'e') this.rotateSel(e.shiftKey ? 90 : 15);
     else if (k === '+' || k === '=') this.zoomCenter(1.3);
@@ -620,6 +698,8 @@ export class Stage {
     for (const u of this.unsub) u();
     this.unsub = [];
     if (this.anim) cancelAnimationFrame(this.anim);
+    if (this.viewAnim) cancelAnimationFrame(this.viewAnim);
+    this.fog.destroy();
     if (this.saveViewTimer) clearTimeout(this.saveViewTimer);
     for (const el of this.els.values()) el.remove();
     this.els.clear();

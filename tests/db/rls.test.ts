@@ -84,6 +84,20 @@ describe('items', () => {
     expect(await errCode(p.ops(room, [{ t: 'add', item: { id: crypto.randomUUID(), kind: 'fog', z: 0, props: {} } }]))).toBe('42501');
   });
 
+  it('fog is GM-drawn: players see it but cannot change or erase it, and a full-size shape fits', async () => {
+    const fog = crypto.randomUUID();
+    // A compacted fog item is the largest payload the client writes (≤ 12 000 points).
+    const ring: number[] = [];
+    for (let i = 0; i < 12000; i++) ring.push(Math.round(Math.cos(i / 1910) * 30000), Math.round(Math.sin(i / 1910) * 30000));
+    const [added] = await as(db, gmId).ops(room, [{ t: 'add', item: { id: fog, kind: 'fog', z: 1, props: { mode: 'add', geom: [ring] } } }]);
+    expect((added as { props: { geom: number[][] } }).props.geom[0]).toHaveLength(24000);
+    const p = as(db, playerId);
+    expect(await p.query('select id from public.items where id = $1', [fog])).toHaveLength(1);
+    expect(await errCode(p.ops(room, [{ t: 'patch', id: fog, props: { mode: 'cut' } }]))).toBe('42501');
+    expect(await p.ops(room, [{ t: 'del', id: fog }])).toEqual([]);
+    expect(await as(db, gmId).ops(room, [{ t: 'del', id: fog }])).toHaveLength(1);
+  });
+
   it('players can add and move characters, but not lock or hide them', async () => {
     const p = as(db, playerId);
     const [added] = await p.ops(room, [char(ids.char)]);

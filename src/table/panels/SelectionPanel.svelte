@@ -14,7 +14,7 @@
     return ui.selectedId ? store.item(ui.selectedId) : undefined;
   });
   const canEdit = $derived(!!it && stage.canEdit(it));
-  const TITLES: Record<string, string> = { char: 'ตัวละครที่เลือก', sticker: 'สติกเกอร์ที่เลือก', map: 'แมพที่เลือก' };
+  const TITLES: Record<string, string> = { char: 'ตัวละครที่เลือก', sticker: 'สติกเกอร์ที่เลือก', map: 'แมพที่เลือก', fog: 'รูปทรงหมอกที่เลือก' };
   let fileInput = $state<HTMLInputElement>();
 
   const n = (v: unknown, d = 0) => (typeof v === 'number' ? v : d);
@@ -32,6 +32,13 @@
     <h2>{TITLES[it.kind] ?? 'ที่เลือกอยู่'}</h2>
     {#if !canEdit}
       <p class="hint">{it.locked ? '🔒 ชิ้นนี้ถูก GM ล็อกไว้' : 'คุณดูได้อย่างเดียว'}</p>
+    {:else if it.kind === 'fog'}
+      <div class="seg two" role="group" aria-label="รูปทรงนี้ทำอะไร">
+        <button aria-pressed={it.props.mode !== 'cut'} onclick={() => stage.fogTool.setMode(it, 'add')}>เติมหมอก</button>
+        <button aria-pressed={it.props.mode === 'cut'} onclick={() => stage.fogTool.setMode(it, 'cut')}>ตัดหมอก</button>
+      </div>
+      <p class="hint">รูปทรงที่อยู่บนสุดมีผลก่อน: "ตัด" เปิดช่องในหมอกที่อยู่ใต้มัน "เติม" ปิดช่องที่อยู่ใต้มันทับกลับ</p>
+      <button class="btn small warn" onclick={() => stage.deleteSel()}>ลบรูปทรงนี้</button>
     {:else}
       {#if it.kind === 'char' || it.kind === 'map'}
         <label class="field">ชื่อ<input type="text" maxlength="40" value={String(it.props.name ?? '')}

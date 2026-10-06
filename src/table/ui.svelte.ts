@@ -1,6 +1,8 @@
 // Per-viewer UI state (never synced).
-export type Tool = 'select' | 'hand' | 'ping';
-export type Tab = 'map' | 'chars' | 'stickers' | 'dice' | 'players';
+export type Tool = 'select' | 'hand' | 'ping' | 'fog';
+export type Tab = 'map' | 'fog' | 'chars' | 'stickers' | 'dice' | 'players';
+export type FogTool = 'rect' | 'poly' | 'brush' | 'pick';
+export type FogMode = 'add' | 'cut';
 
 function load<T>(key: string, fallback: T): T {
   try {
@@ -27,6 +29,14 @@ export class Ui {
   toolsHidden = $state(false);
   /** Map edge snapping while dragging (a personal preference). */
   snap = $state(load('pref:snap', true));
+  /** Fog drawing: which shape tool, whether it adds or cuts fog, and the brush width in world units. */
+  fogTool = $state<FogTool>('rect');
+  fogMode = $state<FogMode>('add');
+  brushWidth = $state(load('pref:brush', 90));
+  /** Local undo depth of the fog tool (the stack itself lives in FogTool). */
+  fogUndo = $state(0);
+  /** GM preview of what players see: opaque fog and no hidden items. */
+  playerView = $state(false);
   toast = $state.raw<{ t1?: string; t2?: string | number; t3?: string; id: number } | null>(null);
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -37,6 +47,11 @@ export class Ui {
   setSnap(v: boolean) {
     this.snap = v;
     store('pref:snap', v);
+  }
+
+  setBrush(v: number) {
+    this.brushWidth = v;
+    store('pref:brush', v);
   }
 
   showToast(t1?: string, t2?: string | number, t3?: string) {
