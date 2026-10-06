@@ -121,3 +121,32 @@ describe('RoomState pending layer', () => {
     expect(s.get('a')?.meta.core).toEqual({ hp: 3, max: 10 });
   });
 });
+
+describe('changes made while an add is in flight', () => {
+  const added = { id: 'n', kind: 'sticker' as const, z: 1, props: { x: 0, y: 0, size: 40 } };
+
+  it('survive the echo of the add (the change is still on its way)', () => {
+    const s = new RoomState();
+    s.loadSnapshot(snap(1, []));
+    s.localAdd(added);
+    s.localPatch('n', { hidden: true, props: { x: 5 } });
+    s.handle({ kind: 'item', scope: 'db', op: 'up', row: row('n', 2, { x: 0, y: 0, size: 40 }, { kind: 'sticker' }), rev: 2 });
+    expect(s.get('n')).toMatchObject({ hidden: true, props: { x: 5 } });
+  });
+
+  it('survive the add showing up in a snapshot', () => {
+    const s = new RoomState();
+    s.loadSnapshot(snap(1, []));
+    s.localAdd(added);
+    s.localPatch('n', { hidden: true });
+    s.loadSnapshot(snap(2, [row('n', 2, { x: 0, y: 0, size: 40 }, { kind: 'sticker' })]));
+    expect(s.get('n')?.hidden).toBe(true);
+  });
+
+  it('are still shown before the server has the row at all', () => {
+    const s = new RoomState();
+    s.localAdd(added);
+    s.localPatch('n', { hidden: true });
+    expect(s.get('n')?.hidden).toBe(true);
+  });
+});

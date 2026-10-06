@@ -104,8 +104,8 @@ export class RoomState {
     this.assets.clear();
     for (const a of s.assets) this.assets.set(assetKey(a.file, a.kind), a);
     this.rolls = [...s.rolls];
-    // Pending adds that the server already has are no longer pending.
-    for (const [id, p] of this.pending) if (p.add && this.items.has(id)) this.pending.delete(id);
+    // Pending adds that the server already has are no longer pending (later local changes still are).
+    for (const [id, p] of this.pending) if (p.add && this.items.has(id)) this.settleAdd(id, p);
 
     const queued = this.buffer;
     this.buffer = [];
@@ -139,7 +139,7 @@ export class RoomState {
           this.tombstones.delete(e.row.id);
           this.items.set(e.row.id, e.row);
           const p = this.pending.get(e.row.id);
-          if (p?.add) this.pending.delete(e.row.id);
+          if (p?.add) this.settleAdd(e.row.id, p);
           if (!quiet) this.emit('items', new Set([e.row.id]));
         } else {
           // GMs also receive the hidden copy on their own topic, so ignore the players' "it's gone" notice.
@@ -181,6 +181,12 @@ export class RoomState {
         return;
       }
     }
+  }
+
+  /** The server has the added row: drop the add, but keep changes made after it was sent. */
+  private settleAdd(id: string, p: Pending) {
+    if (p.patch) delete p.add;
+    else this.pending.delete(id);
   }
 
   // ---- reading ---------------------------------------------------------------
@@ -237,9 +243,11 @@ export class RoomState {
     const seq = ++this.seqCounter;
     const cur = this.pending.get(id);
     if (cur?.add && !this.items.has(id)) {
-      // Not on the server yet: fold the change into the add itself.
+      // Not on the server yet: fold the change into the add itself. The add may already be on its way, so the
+      // change is also kept as a patch to lay over the server's row when it arrives (re-applying it is harmless).
       const merged = applyPatch(this.get(id)!, fields);
       cur.add = { ...cur.add, z: merged.z, locked: merged.locked, hidden: merged.hidden, props: merged.props, meta: merged.meta };
+      cur.patch = mergePatch(cur.patch ?? {}, fields);
       cur.seq = seq;
     } else {
       this.pending.set(id, { seq, patch: mergePatch(cur?.patch ?? {}, fields) });
