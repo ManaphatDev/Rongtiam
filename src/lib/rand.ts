@@ -11,3 +11,10 @@ export function rand(n: number): number {
 }
 
 export const uuid = () => crypto.randomUUID();
+
+/** Uniform float in [0, 1) from the platform CSPRNG. */
+export function randFloat(): number {
+  const a = new Uint32Array(1);
+  crypto.getRandomValues(a);
+  return a[0] / 4294967296;
+}

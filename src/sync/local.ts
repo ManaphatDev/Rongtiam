@@ -68,7 +68,7 @@ export class LocalBackend implements Backend {
   sendLive() {}
 
   async insertRoll(r: NewRoll) {
-    const row = { id: crypto.randomUUID(), room_id: 'local', user_id: this.userId, ...r, rev: ++this.seq, created_at: new Date().toISOString() };
+    const row = { room_id: 'local', user_id: this.userId, ...r, id: r.id ?? crypto.randomUUID(), rev: ++this.seq, created_at: new Date().toISOString() };
     this.rolls.push(row);
     this.emit({ kind: 'roll', scope: 'db', op: 'up', row, rev: row.rev });
   }

@@ -12,6 +12,8 @@ export interface BackendHandlers {
 }
 
 export interface NewRoll {
+  /** Chosen by the roller so the live replay and the stored row can be matched. */
+  id?: string;
   label: string;
   spec: Record<string, unknown>;
   result: RollResult;

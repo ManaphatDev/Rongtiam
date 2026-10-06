@@ -270,6 +270,11 @@ export class Stage {
     else if (it.kind === 'map') el.innerHTML = '<img class="mapimg" alt="">';
     else if (it.props.emoji) el.innerHTML = '<span class="emo"></span>';
     else el.innerHTML = '<img class="simg" alt="">';
+    el.setAttribute('role', 'button');
+    el.addEventListener('focus', () => {
+      if (this.ui.selectedId !== it.id) this.ui.select(it.id);
+      if (!this.isOnScreen(it.id)) this.centerOn(it.id);
+    });
     (it.kind === 'map' ? this.el.maps : this.el.items).appendChild(el);
     this.els.set(it.id, el);
     return el;
@@ -304,6 +309,10 @@ export class Stage {
     el.classList.toggle('locked', it.locked);
     el.classList.toggle('hidden-gm', it.hidden);
     el.classList.toggle('noedit', !this.canEdit(it));
+    // Tab reaches what this person may pick up; the name says what it is.
+    el.tabIndex = this.canSelect(it) ? 0 : -1;
+    el.setAttribute('aria-pressed', String(selected));
+    el.setAttribute('aria-label', itemName(it));
 
     if (it.kind === 'char') {
       el.style.height = `${g.size}px`;
@@ -415,6 +424,15 @@ export class Stage {
     this.store.patch(it.id, { props: { rot: normDeg(num(it.props.rot) + deg) } }, 150);
   }
 
+  /** Moves the selected piece with the arrow keys: a fifth of a grid cell, or a whole cell with Shift. */
+  nudgeSel(key: string, cell: boolean) {
+    const it = this.selected();
+    if (!it || it.locked || !this.canEdit(it)) return;
+    const step = this.store.settings.grid.size / (cell ? 1 : 5);
+    const [dx, dy] = ({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] } as Record<string, number[]>)[key] ?? [0, 0];
+    this.store.patch(it.id, { props: { x: num(it.props.x) + dx * step, y: num(it.props.y) + dy * step } }, 150);
+  }
+
   deleteSel() {
     const it = this.selected();
     if (!it || !this.canEdit(it)) return;
@@ -440,6 +458,10 @@ export class Stage {
     };
 
     on(st, 'pointerdown', (e: PointerEvent) => this.onDown(e));
+    on(st, 'scroll', () => {
+      st.scrollTop = 0;
+      st.scrollLeft = 0;
+    });
     on(st, 'pointermove', (e: PointerEvent) => this.onMove(e));
     on(st, 'pointerup', (e: PointerEvent) => this.onUp(e));
     on(st, 'pointercancel', (e: PointerEvent) => this.onUp(e));
@@ -668,6 +690,13 @@ export class Stage {
     if (this.fogTool.key(e)) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.toLowerCase();
+    const onTable = t === document.body || t === this.el.stage || t.classList.contains('item');
+    if (e.key.startsWith('Arrow') && onTable && this.ui.selectedId) {
+      e.preventDefault();
+      this.nudgeSel(e.key, e.shiftKey);
+      return;
+    }
+    if (e.key === ' ' && !onTable) return;
     if (e.key === ' ') {
       e.preventDefault();
       if (!this.spaceHeld) {
@@ -704,4 +733,13 @@ export class Stage {
     for (const el of this.els.values()) el.remove();
     this.els.clear();
   }
+}
+
+/** What a screen reader hears for a piece on the table. */
+function itemName(it: ItemRow) {
+  const hidden = it.hidden ? ' (ซ่อนจากผู้เล่น)' : '';
+  const locked = it.locked ? ' (ล็อก)' : '';
+  if (it.kind === 'char') return `ตัวละคร ${String(it.props.name ?? '') || 'ไม่มีชื่อ'}${hidden}${locked}`;
+  if (it.kind === 'map') return `แมพ ${String(it.props.name ?? '')}${hidden}${locked}`;
+  return `สติกเกอร์${it.props.emoji ? ` ${String(it.props.emoji)}` : ''}${hidden}${locked}`;
 }

@@ -33,7 +33,7 @@ test('fog hides the map from players, hidden items never reach them, and Sync Vi
   await gm.keyboard.press('+');
   expect(await worldView(pl)).not.toEqual(await worldView(gm));
   await gm.getByTitle(/พาผู้เล่นทุกคนมาดู/).click();
-  await expect(pl.getByText('GM พาไปดูจุดนี้')).toBeVisible();
+  await expect(pl.locator('.toast').getByText('GM พาไปดูจุดนี้')).toBeVisible();
   await expect.poll(async () => {
     const [a, b] = [await worldView(gm), await worldView(pl)];
     return Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1 && Math.abs(a.k - b.k) < 1e-3;
@@ -65,7 +65,7 @@ test('fog hides the map from players, hidden items never reach them, and Sync Vi
   // A sticker hidden from the moment it is created never shows up for the player, not even on the wire.
   await gm.getByRole('tab', { name: 'สติกเกอร์' }).click();
   await gm.getByRole('button', { name: 'แปะสติกเกอร์ 💀' }).click();
-  await gm.getByLabel(/ซ่อนจากผู้เล่น/).check();
+  await gm.getByRole('checkbox', { name: /ซ่อนจากผู้เล่น/ }).check();
   await gm.getByRole('button', { name: 'ทำสำเนา' }).click();
   const secretId = await gm.locator('.item.sel').getAttribute('data-id');
   expect(secretId).toBeTruthy();

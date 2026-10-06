@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import type { RoomStore } from '../sync/room.svelte';
-  import { critText } from '../dice/basic';
+  import { DiceDirector } from '../dice/director';
+  import { critText } from '../dice/model';
   import { Stage } from './Stage';
   import { TableActions } from './actions';
   import type { Tab, Ui } from './ui.svelte';
@@ -18,6 +19,7 @@
   let stageEl: HTMLElement, worldEl: HTMLElement, mapsEl: HTMLElement, itemsEl: HTMLElement, fogEl: HTMLElement, pingsEl: HTMLElement, gridEl: HTMLElement;
   let stage = $state<Stage | null>(null);
   let actions = $state<TableActions | null>(null);
+  let dice = $state<DiceDirector | null>(null);
   const unsub: (() => void)[] = [];
 
   const TABS: { id: Tab; label: string }[] = [
@@ -26,6 +28,17 @@
   ];
   // Fog is the GM's tab, right after the map.
   const tabs = $derived(store.isGM ? [TABS[0], { id: 'fog' as Tab, label: 'หมอก' }, ...TABS.slice(1)] : TABS);
+
+  /** Arrow keys, Home and End move between tabs (and select them), as the ARIA tabs pattern expects. */
+  function tabKey(e: KeyboardEvent) {
+    const i = tabs.findIndex((t) => t.id === ui.tab);
+    const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    const t = tabs[(next + tabs.length) % tabs.length];
+    pickTab(t.id);
+    document.getElementById(`tab-${t.id}`)?.focus();
+  }
 
   function pickTab(id: Tab) {
     ui.tab = id;
@@ -51,6 +64,7 @@
     return store.state.room?.name ?? '';
   });
   let dismissed = $state(new Set<string>());
+  const toastText = $derived(ui.toast ? [ui.toast.t1, ui.toast.t2, ui.toast.t3].filter((x) => x !== undefined && x !== '').join(' ') : '');
 
   onMount(() => {
     const s = new Stage({ stage: stageEl, world: worldEl, maps: mapsEl, items: itemsEl, fog: fogEl, pings: pingsEl, grid: gridEl }, store, ui,
@@ -58,8 +72,14 @@
     stage = s;
     actions = new TableActions(store, s, ui);
 
-    // Rolls by anyone pop up on the table for everyone.
-    unsub.push(store.onRoll((r) => {
+    const d = new DiceDirector(store, stageEl, (text) => ui.showToast(text));
+    dice = d;
+    d.prefetch();
+    unsub.push(() => d.destroy());
+
+    // Rolls by anyone pop up on the table for everyone, once their dice have landed.
+    unsub.push(store.onRoll(async (r) => {
+      await d.after(r.id);
       const who = store.state.members.get(r.user_id)?.display_name ?? '';
       ui.showToast(`${who} · ${r.label}${r.visibility === 'gm' ? ' (ลับ)' : ''}`, r.result.total, critText(r.result.crit) || r.result.breakdown);
     }));
@@ -120,58 +140,6 @@
   <main class="stage" class:tool-select={ui.tool === 'select'} class:tool-hand={ui.tool === 'hand'} class:tool-ping={ui.tool === 'ping'}
     class:tool-fog={ui.tool === 'fog'} class:gmfog={store.isGM && !ui.playerView} class:playerview={store.isGM && ui.playerView}
     bind:this={stageEl} aria-label="โต๊ะเกม">
-    <div class="world" bind:this={worldEl}>
-      <div class="layer" id="mapsLayer" bind:this={mapsEl}></div>
-      <div id="gridEl" style="display:none" bind:this={gridEl}></div>
-      <div class="layer" id="items" bind:this={itemsEl}></div>
-      <div class="layer" id="fog" bind:this={fogEl}></div>
-      <div class="layer" id="pings" bind:this={pingsEl}></div>
-    </div>
-
-    {#if empty}
-      <div class="empty">
-        <div>
-          {#if store.isGM}
-            <strong>วางแมพลงบนโต๊ะ</strong>
-            ลากรูปมาวางตรงนี้ หรือเปิดแท็บ "แมพ" แล้วกด "เพิ่มแมพ" ใช้ภาพอะไรก็ได้ และเพิ่มหลายแผ่นมาต่อกันได้
-          {:else}
-            <strong>รอ GM วางแมพ</strong>
-            ระหว่างนี้เพิ่มตัวละครของคุณได้ที่แท็บ "ตัวละคร"
-          {/if}
-        </div>
-      </div>
-    {/if}
-    <div class="dropveil"></div>
-
-    {#if ui.toast}
-      {#key ui.toast.id}
-        <div class="toast" role="status">
-          {#if ui.toast.t1}<div class="t1">{ui.toast.t1}</div>{/if}
-          {#if ui.toast.t2 !== undefined}<div class="t2">{ui.toast.t2}</div>{/if}
-          {#if ui.toast.t3}<div class="t3">{ui.toast.t3}</div>{/if}
-        </div>
-      {/key}
-    {/if}
-
-    {#if pending.some((m) => !dismissed.has(m.user_id))}
-      <div class="requests overlay-ui" aria-live="polite">
-        {#each pending.filter((m) => !dismissed.has(m.user_id)) as m (m.user_id)}
-          <div class="request">
-            <span><b style:color={m.color}>●</b> <b>{m.display_name}</b> ขอเข้าห้อง</span>
-            <div class="row">
-              <button class="btn small primary" onclick={() => store.member(m.user_id, { status: 'approved' })}>รับเข้าห้อง</button>
-              <button class="btn small" onclick={() => store.kick(m.user_id)}>ไม่รับ</button>
-              <button class="btn small" onclick={() => (dismissed = new Set([...dismissed, m.user_id]))} aria-label="ไว้ทีหลัง">ไว้ทีหลัง</button>
-            </div>
-          </div>
-        {/each}
-      </div>
-    {/if}
-
-    {#if store.status === 'offline'}
-      <div class="banner" role="status">การเชื่อมต่อหลุด กำลังเชื่อมต่อใหม่…</div>
-    {/if}
-
     <div class="tools" role="toolbar" aria-label="เครื่องมือเมาส์">
       <button class="tool" aria-pressed={ui.tool === 'select'} title="เลือก/หยิบ (กด 1 หรือ V)" onclick={() => (ui.tool = 'select')}>
         <svg viewBox="0 0 24 24"><path d="M5 3l14 7-6.2 2.2L10.5 19z" /></svg>เลือก
@@ -210,6 +178,59 @@
         <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" /></svg>ซ่อนแถบ
       </button>
     </div>
+    <div class="world" bind:this={worldEl}>
+      <div class="layer" id="mapsLayer" bind:this={mapsEl}></div>
+      <div id="gridEl" style="display:none" bind:this={gridEl}></div>
+      <div class="layer" id="items" bind:this={itemsEl}></div>
+      <div class="layer" id="fog" bind:this={fogEl}></div>
+      <div class="layer" id="pings" bind:this={pingsEl}></div>
+    </div>
+
+    {#if empty}
+      <div class="empty">
+        <div>
+          {#if store.isGM}
+            <strong>วางแมพลงบนโต๊ะ</strong>
+            ลากรูปมาวางตรงนี้ หรือเปิดแท็บ "แมพ" แล้วกด "เพิ่มแมพ" ใช้ภาพอะไรก็ได้ และเพิ่มหลายแผ่นมาต่อกันได้
+          {:else}
+            <strong>รอ GM วางแมพ</strong>
+            ระหว่างนี้เพิ่มตัวละครของคุณได้ที่แท็บ "ตัวละคร"
+          {/if}
+        </div>
+      </div>
+    {/if}
+    <div class="dropveil"></div>
+
+    <div class="sr-only" role="status">{toastText}</div>
+    {#if ui.toast}
+      {#key ui.toast.id}
+        <div class="toast" aria-hidden="true">
+          {#if ui.toast.t1}<div class="t1">{ui.toast.t1}</div>{/if}
+          {#if ui.toast.t2 !== undefined}<div class="t2">{ui.toast.t2}</div>{/if}
+          {#if ui.toast.t3}<div class="t3">{ui.toast.t3}</div>{/if}
+        </div>
+      {/key}
+    {/if}
+
+    {#if pending.some((m) => !dismissed.has(m.user_id))}
+      <div class="requests overlay-ui" aria-live="polite">
+        {#each pending.filter((m) => !dismissed.has(m.user_id)) as m (m.user_id)}
+          <div class="request">
+            <span><b style:color={m.color}>●</b> <b>{m.display_name}</b> ขอเข้าห้อง</span>
+            <div class="row">
+              <button class="btn small primary" onclick={() => store.member(m.user_id, { status: 'approved' })}>รับเข้าห้อง</button>
+              <button class="btn small" onclick={() => store.kick(m.user_id)}>ไม่รับ</button>
+              <button class="btn small" onclick={() => (dismissed = new Set([...dismissed, m.user_id]))} aria-label="ไว้ทีหลัง">ไว้ทีหลัง</button>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/if}
+
+    {#if store.status === 'offline'}
+      <div class="banner" role="status">การเชื่อมต่อหลุด กำลังเชื่อมต่อใหม่…</div>
+    {/if}
+
     <button class="showui" onclick={() => { ui.sideHidden = false; ui.toolsHidden = false; }}>แสดงแผงและเครื่องมือ</button>
   </main>
 
@@ -218,9 +239,10 @@
       <h1>{roomName || 'โรงเตี๊ยม'}</h1>
       <small class={`conn ${store.status}`}><i></i>{store.status === 'live' ? `ออนไลน์ ${store.online.length} คน` : store.status === 'offline' ? 'ออฟไลน์' : 'กำลังเชื่อมต่อ'}</small>
     </div>
-    <div class="tabs" class:five={tabs.length === 5} class:six={tabs.length === 6} role="tablist" aria-label="เมนู">
+    <div class="tabs" class:five={tabs.length === 5} class:six={tabs.length === 6} role="tablist" aria-label="เมนู" tabindex="-1" onkeydown={tabKey}>
       {#each tabs as t (t.id)}
-        <button class="tab" role="tab" aria-selected={ui.tab === t.id} onclick={() => pickTab(t.id)}>
+        <button class="tab" role="tab" id={`tab-${t.id}`} aria-selected={ui.tab === t.id} aria-controls="tabpanel"
+          tabindex={ui.tab === t.id ? 0 : -1} onclick={() => pickTab(t.id)}>
           {t.label}{#if t.id === 'players' && pending.length}<span class="badge">{pending.length}</span>{/if}
         </button>
       {/each}
@@ -228,14 +250,14 @@
     <div class="side-body">
       {#if stage && actions}
         <SelectionPanel {store} {ui} {stage} {actions} />
-        <section class="pane on">
+        <div class="pane on" role="tabpanel" id="tabpanel" aria-labelledby={`tab-${ui.tab}`}>
           {#if ui.tab === 'map'}<MapPane {store} {ui} {stage} {actions} />
           {:else if ui.tab === 'fog' && store.isGM}<FogPane {store} {ui} {stage} />
           {:else if ui.tab === 'chars'}<CharsPane {store} {ui} {stage} {actions} />
           {:else if ui.tab === 'stickers'}<StickersPane {store} {actions} />
-          {:else if ui.tab === 'dice'}<DicePane {store} />
+          {:else if ui.tab === 'dice'}{#if dice}<DicePane {store} {dice} />{/if}
           {:else}<PlayersPane {store} {ui} {slug} bind:gmKey />{/if}
-        </section>
+        </div>
       {/if}
     </div>
   </aside>

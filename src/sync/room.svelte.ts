@@ -50,6 +50,7 @@ export class RoomStore {
   private pingListeners = new Set<(p: Ping) => void>();
   private rollListeners = new Set<(r: import('./types').RollRow) => void>();
   private viewListeners = new Set<(v: ViewTarget) => void>();
+  private rollStartListeners = new Set<(payload: unknown) => void>();
   private resyncing = false;
 
   constructor(readonly backend: Backend, private me: PresenceInfo, private onError: (msg: string) => void) {
@@ -172,6 +173,8 @@ export class RoomStore {
     } else if (event === 'ping') {
       const p = payload as Ping;
       for (const l of this.pingListeners) l(p);
+    } else if (event === 'roll') {
+      for (const l of this.rollStartListeners) l(payload);
     } else if (event === 'view') {
       // The live topic is writable by every member, so only follow views that claim to come from a GM.
       const p = payload as Partial<ViewTarget> & { u?: string };
@@ -190,6 +193,16 @@ export class RoomStore {
   onPing(fn: (p: Ping) => void) {
     this.pingListeners.add(fn);
     return () => this.pingListeners.delete(fn);
+  }
+
+  /** Someone started a roll (validated by the dice code, which knows the message's shape). */
+  onRollStart(fn: (payload: unknown) => void) {
+    this.rollStartListeners.add(fn);
+    return () => this.rollStartListeners.delete(fn);
+  }
+
+  sendRollStart(payload: unknown) {
+    this.bus.immediate('roll', payload);
   }
 
   /** Fires when a GM asks everyone to look at one spot (Sync View). */

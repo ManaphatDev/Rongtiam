@@ -103,7 +103,8 @@ export interface AssetRow {
 }
 
 export interface RollResult {
-  dice: { id: string; sides: number; value: number }[];
+  /** `dropped`: rolled but not counted (e.g. the lower d20 with advantage). */
+  dice: { id: string; sides: number; value: number; dropped?: boolean }[];
   total: number;
   breakdown: string;
   crit?: 'hit' | 'fumble';
