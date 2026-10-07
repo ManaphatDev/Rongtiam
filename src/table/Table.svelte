@@ -4,6 +4,7 @@
   import { DiceDirector } from '../dice/director';
   import { RulesetHost } from '../rulesets/host.svelte';
   import SheetPanel from '../sheets/SheetPanel.svelte';
+  import BuilderPanel from '../sheets/BuilderPanel.svelte';
   import InitiativeTracker from '../sheets/InitiativeTracker.svelte';
   import { critText } from '../dice/model';
   import { Stage } from './Stage';
@@ -242,6 +243,7 @@
     {/if}
 
     {#if dice}<SheetPanel {store} {ui} {host} {dice} />{/if}
+    {#if dice}<BuilderPanel {store} {ui} {host} {dice} />{/if}
     {#if ui.templateOpen && store.isGM}
       {#await import('../rulesets/custom/TemplateEditor.svelte') then { default: TemplateEditor }}
         <TemplateEditor {store} ctx={host.ctx} onclose={() => (ui.templateOpen = false)} />

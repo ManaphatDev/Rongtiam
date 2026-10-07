@@ -29,6 +29,8 @@ export class Ui {
   initOpen = $state(false);
   /** GM: the custom ruleset's template editor. */
   templateOpen = $state(false);
+  /** The ruleset's character builder is open over the table. */
+  builderOpen = $state(false);
   tab = $state<Tab>('map');
   tool = $state<Tool>('select');
   sideHidden = $state(false);

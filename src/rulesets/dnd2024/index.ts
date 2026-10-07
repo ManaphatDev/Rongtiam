@@ -59,6 +59,7 @@ export const dnd2024: RulesetModule = {
     return { expr: b ? `1d20${b > 0 ? '+' : ''}${b}` : '1d20', tie: v.c.abilities.dex };
   },
   Sheet: () => import('./Sheet.svelte').then((m) => m.default),
+  Builder: () => import('./builder/Builder.svelte').then((m) => m.default),
 };
 
 export { viewOf };

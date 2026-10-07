@@ -21,7 +21,7 @@ test('sheets: bind a token, share HP live, run initiative, export/import, keep N
 
   // The player makes a character and a token, and binds them.
   await pl.getByRole('tab', { name: 'ตัวละคร' }).click();
-  await pl.getByRole('button', { name: 'สร้างตัวละคร' }).click();
+  await pl.getByRole('button', { name: 'สร้างชีทเปล่า' }).click();
   await pl.locator('.sheet-panel .sheet').waitFor();
   await pl.getByLabel('ชื่อ', { exact: true }).first().fill('Pip');
   await expect(gm.locator('.roster .pick', { hasText: 'Pip' })).toBeVisible();

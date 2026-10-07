@@ -10,6 +10,8 @@
 
   const ruleset = $derived(host.roomRuleset);
   const list = $derived(host.characters());
+  /** The system has a guided builder (D&D); otherwise "create" just opens a blank sheet. */
+  const hasBuilder = $derived(ruleset !== 'none' && !!host.module(ruleset)?.Builder);
   let importInput = $state<HTMLInputElement>();
   let error = $state('');
   let busy = $state(false);
@@ -35,6 +37,15 @@
     } finally {
       busy = false;
     }
+  }
+
+  function startCreate() {
+    if (!hasBuilder) {
+      void create(false);
+      return;
+    }
+    ui.sheetOpen = null;
+    ui.builderOpen = true;
   }
 
   async function importFile(f: File) {
@@ -81,7 +92,8 @@
     <p class="hint">{store.isGM ? 'เลือกระบบกฎก่อน แล้วทุกคนจะสร้างชีทได้' : 'รอ GM เลือกระบบกฎของห้อง'}</p>
   {:else}
     <div class="row">
-      <button class="btn primary" disabled={busy} onclick={() => create(false)}>สร้างตัวละคร</button>
+      <button class="btn primary" disabled={busy} onclick={startCreate}>สร้างตัวละคร</button>
+      {#if hasBuilder}<button class="btn" disabled={busy} onclick={() => create(false)}>สร้างชีทเปล่า</button>{/if}
       {#if store.isGM}<button class="btn" disabled={busy} onclick={() => create(true)}>สร้าง NPC ลับ</button>{/if}
     </div>
   {/if}
