@@ -39,9 +39,11 @@
     }
   }
 
-  function startCreate() {
-    if (!hasBuilder) {
-      void create(false);
+  async function startCreate() {
+    // Right after the system is picked its module may still be loading, so wait for it rather than asking `hasBuilder`.
+    const mod = await host.ensure(ruleset);
+    if (!mod?.Builder) {
+      await create(false);
       return;
     }
     ui.sheetOpen = null;
