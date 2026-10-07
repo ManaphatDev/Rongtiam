@@ -1,6 +1,6 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { toDbEvent, type Backend, type BackendHandlers, type NewRoll } from '../sync/backend';
-import type { ItemRow, MemberRow, Op, PresenceInfo, RoomSettings, Snapshot } from '../sync/types';
+import { toDbEvent, type Backend, type BackendHandlers, type NewCharacter, type NewInit, type NewRoll } from '../sync/backend';
+import type { CharacterRow, CharOp, InitRow, ItemRow, MemberRow, Op, PresenceInfo, RoomSettings, Snapshot } from '../sync/types';
 import { rpc, supa, type RpcError } from './client';
 
 const BUCKET = 'room-assets';
@@ -85,7 +85,7 @@ export class SupabaseBackend implements Backend {
     fail(error);
   }
 
-  async updateRoom(fields: { name?: string; settings?: RoomSettings }) {
+  async updateRoom(fields: { name?: string; settings?: RoomSettings; ruleset_id?: string }) {
     const { error } = await supa().from('rooms').update(fields).eq('id', this.roomId);
     fail(error);
   }
@@ -131,6 +131,52 @@ export class SupabaseBackend implements Backend {
 
   async removeAsset(file: string, kind: 'map' | 'token' | 'sticker') {
     const { error } = await supa().from('assets').delete().eq('room_id', this.roomId).eq('file', file).eq('kind', kind);
+    fail(error);
+  }
+
+  async insertCharacter(c: NewCharacter) {
+    const { data, error } = await supa().from('characters').insert({ room_id: this.roomId, ...c }).select().single();
+    fail(error);
+    return data as CharacterRow;
+  }
+
+  async patchCharacter(id: string, ops: CharOp[]) {
+    return rpc<CharacterRow>('character_patch', { p_id: id, p_ops: ops });
+  }
+
+  async updateCharacter(id: string, fields: Partial<Pick<CharacterRow, 'owner_id' | 'visibility'>>) {
+    const { error } = await supa().from('characters').update(fields).eq('id', id);
+    fail(error);
+  }
+
+  async deleteCharacter(id: string) {
+    const { error } = await supa().from('characters').delete().eq('id', id);
+    fail(error);
+  }
+
+  async upsertContent(c: { kind: string; key: string; data: Record<string, unknown> }) {
+    const { error } = await supa().from('room_content').upsert({ room_id: this.roomId, ...c }, { onConflict: 'room_id,kind,key' });
+    fail(error);
+  }
+
+  async deleteContent(id: string) {
+    const { error } = await supa().from('room_content').delete().eq('id', id);
+    fail(error);
+  }
+
+  async insertInit(e: NewInit) {
+    const { data, error } = await supa().from('initiative_entries').insert({ room_id: this.roomId, ...e }).select().single();
+    fail(error);
+    return data as InitRow;
+  }
+
+  async updateInit(id: string, fields: Partial<Pick<InitRow, 'name' | 'init' | 'tie' | 'hidden' | 'item_id'>>) {
+    const { error } = await supa().from('initiative_entries').update(fields).eq('id', id);
+    fail(error);
+  }
+
+  async deleteInit(id: string) {
+    const { error } = await supa().from('initiative_entries').delete().eq('id', id);
     fail(error);
   }
 

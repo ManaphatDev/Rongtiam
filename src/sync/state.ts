@@ -6,8 +6,10 @@
 // - Deleted ids are tombstoned so a late or buffered `up` can't resurrect them. Items hidden from players are
 //   tombstoned only up to that rev, so unhiding (a newer rev) brings them back.
 
+import { pathKey, setIn, type Path } from './paths';
 import type {
-  AssetRow, DbEvent, ItemRow, MemberRow, NewItem, PatchFields, Props, RollRow, RoomRow, Snapshot,
+  AssetRow, CharacterRow, CharOp, ContentRow, DbEvent, InitRow, ItemRow, MemberRow, NewItem, PatchFields, Props, RollRow,
+  RoomRow, Snapshot,
 } from './types';
 
 interface Pending {
@@ -17,7 +19,7 @@ interface Pending {
   del?: boolean;
 }
 
-export type ChangeKind = 'items' | 'members' | 'assets' | 'room' | 'rolls';
+export type ChangeKind = 'items' | 'members' | 'assets' | 'room' | 'rolls' | 'characters' | 'content' | 'initiative';
 type Listener = (kind: ChangeKind, ids?: Set<string>) => void;
 
 const DELETED = Number.POSITIVE_INFINITY;
@@ -58,12 +60,49 @@ export function applyPatch(row: ItemRow, p: PatchFields): ItemRow {
   return out;
 }
 
+/**
+ * Rows ordered by rev with tombstones, for the collections that have no optimistic adds (characters, room content,
+ * initiative). Same rules as items: stale revs are ignored, deletes can't be resurrected, and rows hidden from
+ * players are tombstoned only up to that rev so making them visible again brings them back.
+ */
+export class Collection<T extends { id: string; rev: number }> {
+  readonly rows = new Map<string, T>();
+  private tombstones = new Map<string, number>();
+
+  load(rows: T[]) {
+    this.rows.clear();
+    for (const r of rows) this.rows.set(r.id, r);
+    for (const [id, rev] of this.tombstones) if (rev !== DELETED) this.tombstones.delete(id);
+  }
+
+  /** True when the row was newer and is now stored. */
+  up(row: T, rev = row.rev): boolean {
+    const t = this.tombstones.get(row.id);
+    if (t !== undefined && t >= rev) return false;
+    const cur = this.rows.get(row.id);
+    if (cur && cur.rev >= rev) return false;
+    this.tombstones.delete(row.id);
+    this.rows.set(row.id, row);
+    return true;
+  }
+
+  del(id: string, rev: number, hidden = false) {
+    this.tombstones.set(id, hidden ? rev : DELETED);
+    this.rows.delete(id);
+  }
+}
+
 export class RoomState {
   room: RoomRow | null = null;
   readonly items = new Map<string, ItemRow>();
   readonly members = new Map<string, MemberRow>();
   readonly assets = new Map<string, AssetRow>();
   rolls: RollRow[] = [];
+  readonly characters = new Collection<CharacterRow>();
+  readonly content = new Collection<ContentRow>();
+  readonly initiative = new Collection<InitRow>();
+  /** This client's unsent/unacknowledged character edits, by character then path. */
+  private charPending = new Map<string, Map<string, { path: Path; value: unknown; seq: number }>>();
 
   private pending = new Map<string, Pending>();
   private tombstones = new Map<string, number>();
@@ -104,6 +143,9 @@ export class RoomState {
     this.assets.clear();
     for (const a of s.assets) this.assets.set(assetKey(a.file, a.kind), a);
     this.rolls = [...s.rolls];
+    this.characters.load(s.characters ?? []);
+    this.content.load(s.content ?? []);
+    this.initiative.load(s.initiative ?? []);
     // Pending adds that the server already has are no longer pending (later local changes still are).
     for (const [id, p] of this.pending) if (p.add && this.items.has(id)) this.settleAdd(id, p);
 
@@ -117,6 +159,9 @@ export class RoomState {
     this.emit('members');
     this.emit('assets');
     this.emit('rolls');
+    this.emit('characters');
+    this.emit('content');
+    this.emit('initiative');
     this.emit('items', changed);
   }
 
@@ -178,6 +223,28 @@ export class RoomState {
         if (this.rolls.some((r) => r.id === e.row.id)) return;
         this.rolls = [...this.rolls, e.row].slice(-200);
         if (!quiet) this.emit('rolls');
+        return;
+      }
+      case 'character':
+      case 'init': {
+        const coll: Collection<CharacterRow | InitRow> = e.kind === 'character' ? this.characters : this.initiative;
+        const kind = e.kind === 'character' ? 'characters' : 'initiative';
+        if (e.op === 'up') {
+          if (!coll.up(e.row, e.rev)) return;
+        } else {
+          // GMs also receive the secret copy on their own topic.
+          if (e.reason === 'hidden' && this.isGM()) return;
+          coll.del(e.id, e.rev, e.reason === 'hidden');
+          if (e.kind === 'character') this.charPending.delete(e.id);
+        }
+        if (!quiet) this.emit(kind);
+        return;
+      }
+      case 'content': {
+        if (e.op === 'up') {
+          if (!this.content.up(e.row, e.rev)) return;
+        } else this.content.del(e.id, e.rev);
+        if (!quiet) this.emit('content');
         return;
       }
     }
@@ -289,6 +356,57 @@ export class RoomState {
   reject(ids: string[]) {
     for (const id of ids) this.pending.delete(id);
     this.emit('items', new Set(ids));
+  }
+
+  // ---- characters: confirmed rows with this client's pending field edits on top ------------
+
+  character(id: string): CharacterRow | undefined {
+    const base = this.characters.rows.get(id);
+    const p = this.charPending.get(id);
+    if (!base || !p?.size) return base;
+    let data = base.data;
+    for (const { path, value } of p.values()) data = setIn(data, path, value);
+    return { ...base, data };
+  }
+
+  characterList(): CharacterRow[] {
+    return [...this.characters.rows.keys()].map((id) => this.character(id)!);
+  }
+
+  localCharPatch(id: string, path: Path, value: unknown): number {
+    const seq = ++this.seqCounter;
+    let p = this.charPending.get(id);
+    if (!p) this.charPending.set(id, (p = new Map()));
+    p.set(pathKey(path), { path, value, seq });
+    this.emit('characters');
+    return seq;
+  }
+
+  /** The pending edits of a character as ops, with the seq each was recorded at (for acknowledging later). */
+  pendingCharOps(id: string): { ops: CharOp[]; sent: { key: string; seq: number }[] } {
+    const p = this.charPending.get(id);
+    const ops: CharOp[] = [], sent: { key: string; seq: number }[] = [];
+    for (const [key, e] of p ?? []) {
+      ops.push({ path: e.path, value: e.value ?? null });
+      sent.push({ key, seq: e.seq });
+    }
+    return { ops, sent };
+  }
+
+  /** Server applied a patch. Edits made after it was sent stay pending. */
+  charAck(id: string, sent: { key: string; seq: number }[], row: CharacterRow) {
+    this.characters.up(row);
+    const p = this.charPending.get(id);
+    for (const s of sent) if (p?.get(s.key)?.seq === s.seq) p.delete(s.key);
+    if (p && !p.size) this.charPending.delete(id);
+    this.emit('characters');
+  }
+
+  charReject(id: string, keys: string[]) {
+    const p = this.charPending.get(id);
+    for (const k of keys) p?.delete(k);
+    if (p && !p.size) this.charPending.delete(id);
+    this.emit('characters');
   }
 
   // ---- convenience ---------------------------------------------------------------------

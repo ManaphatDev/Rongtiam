@@ -69,6 +69,8 @@ export type Op =
 export interface RoomSettings {
   grid: { on: boolean; size: number };
   snap: boolean;
+  /** Whose turn it is (an initiative entry id) and the round number. */
+  initiative?: { round: number; current: string | null };
   [k: string]: unknown;
 }
 
@@ -103,7 +105,8 @@ export interface AssetRow {
 }
 
 export interface RollResult {
-  dice: { id: string; sides: number; value: number }[];
+  /** `dropped`: rolled but not counted (e.g. the lower d20 with advantage). */
+  dice: { id: string; sides: number; value: number; dropped?: boolean }[];
   total: number;
   breakdown: string;
   crit?: 'hit' | 'fumble';
@@ -122,6 +125,51 @@ export interface RollRow {
   created_at: string;
 }
 
+/** A character sheet. `data` belongs to its ruleset; `visibility: 'gm'` rows (secret NPCs) only reach GMs. */
+export interface CharacterRow {
+  id: string;
+  room_id: string;
+  owner_id: string | null;
+  ruleset: string;
+  visibility: 'party' | 'gm';
+  data: Record<string, unknown>;
+  rev: number;
+  created_at?: string;
+  updated_by?: string | null;
+  updated_at?: string;
+}
+
+/** GM-authored material for the room (a custom sheet template, homebrew). */
+export interface ContentRow {
+  id: string;
+  room_id: string;
+  kind: string;
+  key: string;
+  data: Record<string, unknown>;
+  rev: number;
+}
+
+/** One creature in the initiative order. Turn and round live in the room settings. */
+export interface InitRow {
+  id: string;
+  room_id: string;
+  character_id: string | null;
+  item_id: string | null;
+  name: string;
+  init: number;
+  tie: number;
+  hidden: boolean;
+  rev: number;
+  created_by?: string | null;
+  created_at?: string;
+}
+
+/** One field-level change to a character's data; a null value removes the key. */
+export interface CharOp {
+  path: (string | number)[];
+  value: unknown;
+}
+
 export interface Snapshot {
   seq: number;
   room: RoomRow;
@@ -129,6 +177,9 @@ export interface Snapshot {
   items: ItemRow[];
   assets: AssetRow[];
   rolls: RollRow[];
+  characters: CharacterRow[];
+  content: ContentRow[];
+  initiative: InitRow[];
 }
 
 /** Events broadcast by database triggers (topics `db` and `gm`). */
@@ -140,7 +191,13 @@ export type DbEvent =
   | { kind: 'asset'; scope: 'db' | 'gm'; op: 'up'; row: AssetRow; rev: number }
   | { kind: 'asset'; scope: 'db' | 'gm'; op: 'del'; file: string; assetKind: AssetRow['kind']; rev: number }
   | { kind: 'room'; scope: 'db' | 'gm'; op: 'up'; row: RoomRow; rev: number }
-  | { kind: 'roll'; scope: 'db' | 'gm'; op: 'up'; row: RollRow; rev: number };
+  | { kind: 'roll'; scope: 'db' | 'gm'; op: 'up'; row: RollRow; rev: number }
+  | { kind: 'character'; scope: 'db' | 'gm'; op: 'up'; row: CharacterRow; rev: number }
+  | { kind: 'character'; scope: 'db' | 'gm'; op: 'del'; id: string; rev: number; reason?: 'hidden' }
+  | { kind: 'content'; scope: 'db' | 'gm'; op: 'up'; row: ContentRow; rev: number }
+  | { kind: 'content'; scope: 'db' | 'gm'; op: 'del'; id: string; rev: number }
+  | { kind: 'init'; scope: 'db' | 'gm'; op: 'up'; row: InitRow; rev: number }
+  | { kind: 'init'; scope: 'db' | 'gm'; op: 'del'; id: string; rev: number; reason?: 'hidden' };
 
 export interface PresenceInfo {
   user_id: string;

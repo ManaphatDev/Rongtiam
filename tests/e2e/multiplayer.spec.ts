@@ -63,9 +63,9 @@ test('create, join with approval, and sync the table both ways', async ({ browse
 
   // GM hides the character; it disappears for the player and comes back when unhidden.
   await gm.locator('.item.char').first().click();
-  await gm.getByLabel(/ซ่อนจากผู้เล่น/).check();
+  await gm.getByRole('checkbox', { name: /ซ่อนจากผู้เล่น/ }).check();
   await expect(pl.locator('.item.char')).toHaveCount(0);
-  await gm.getByLabel(/ซ่อนจากผู้เล่น/).uncheck();
+  await gm.getByRole('checkbox', { name: /ซ่อนจากผู้เล่น/ }).uncheck();
   await expect(pl.locator('.item.char')).toHaveCount(1);
 
   // State survives a reload.

@@ -3,6 +3,7 @@
   import Home from './routes/Home.svelte';
   import Room from './routes/Room.svelte';
   import Local from './routes/Local.svelte';
+  import Credits from './routes/Credits.svelte';
 </script>
 
 {#if router.route.name === 'home'}
@@ -13,6 +14,8 @@
   {/key}
 {:else if router.route.name === 'local'}
   <Local />
+{:else if router.route.name === 'credits'}
+  <Credits />
 {:else}
   <div class="page">
     <div class="card">

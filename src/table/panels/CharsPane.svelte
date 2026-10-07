@@ -1,11 +1,13 @@
 <script lang="ts">
+  import type { RulesetHost } from '../../rulesets/host.svelte';
+  import SheetsSection from '../../sheets/SheetsSection.svelte';
   import type { RoomStore } from '../../sync/room.svelte';
   import type { Stage } from '../Stage';
   import type { TableActions } from '../actions';
   import type { Ui } from '../ui.svelte';
   import Thumb from './Thumb.svelte';
 
-  let { store, ui, stage, actions }: { store: RoomStore; ui: Ui; stage: Stage; actions: TableActions } = $props();
+  let { store, ui, stage, actions, host }: { store: RoomStore; ui: Ui; stage: Stage; actions: TableActions; host: RulesetHost } = $props();
 
   const chars = $derived.by(() => {
     void store.itemsVersion;
@@ -15,8 +17,10 @@
   let fileInput = $state<HTMLInputElement>();
 </script>
 
+<SheetsSection {store} {ui} {host} />
+
 <div class="group">
-  <h2>เพิ่มตัวละคร</h2>
+  <h2>เพิ่มโทเคนตัวละคร</h2>
   <label class="field">ชื่อ (ไม่ใส่ก็ได้)<input type="text" bind:value={newName} maxlength="40" placeholder="เช่น อาเธอร์ พ่อมดเฒ่า" /></label>
   <button class="btn primary" onclick={() => fileInput?.click()}>เลือกรูปตัวละคร</button>
   <input type="file" accept="image/*" multiple hidden bind:this={fileInput}

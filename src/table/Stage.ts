@@ -19,6 +19,12 @@ export interface StageEls {
   grid: HTMLElement;
 }
 
+/** What a token shows about its creature: bars (HP...) and active condition icons. */
+export interface TokenStatus {
+  bars: { label: string; current: number; max: number; color: string }[];
+  icons: { icon: string; label: string }[];
+}
+
 interface Override {
   x?: number;
   y?: number;
@@ -43,6 +49,8 @@ export class Stage {
   private saveViewTimer: ReturnType<typeof setTimeout> | null = null;
   private viewAnim = 0;
   readonly fog: FogLayer;
+  /** Bars and condition icons for a token (from its bound character sheet, or its own NPC HP). */
+  private status: (it: ItemRow) => TokenStatus | null = () => null;
   readonly fogTool: FogTool;
 
   constructor(private el: StageEls, private store: RoomStore, private ui: Ui, private onFiles: (files: File[], at: { x: number; y: number }) => void) {
@@ -54,6 +62,8 @@ export class Stage {
         this.fog.invalidate();
       }
       if (kind === 'room') this.renderGrid();
+      // A sheet or the room's custom template changed: tokens show its bars/conditions.
+      if (kind === 'characters' || kind === 'content') this.renderTokens();
     }));
     this.unsub.push(store.onView((v) => {
       if (store.isGM) return;
@@ -245,6 +255,32 @@ export class Stage {
     this.restack();
   }
 
+  private activeTurn: string | null = null;
+
+  /** Rings the token whose turn it is. */
+  setActiveTurn(id: string | null) {
+    if (id === this.activeTurn) return;
+    const prev = this.activeTurn;
+    this.activeTurn = id;
+    for (const x of [prev, id]) {
+      const it = x ? this.store.item(x) : undefined;
+      if (it) this.updateEl(it);
+    }
+  }
+
+  setStatusSource(fn: (it: ItemRow) => TokenStatus | null) {
+    this.status = fn;
+    this.renderTokens();
+  }
+
+  /** Re-render character tokens only (their overlays depend on sheets, not just on the item). */
+  renderTokens() {
+    for (const id of this.els.keys()) {
+      const it = this.store.item(id);
+      if (it?.kind === 'char') this.updateEl(it);
+    }
+  }
+
   refreshSelection() {
     this.fog.invalidate();
     for (const id of this.els.keys()) {
@@ -270,6 +306,11 @@ export class Stage {
     else if (it.kind === 'map') el.innerHTML = '<img class="mapimg" alt="">';
     else if (it.props.emoji) el.innerHTML = '<span class="emo"></span>';
     else el.innerHTML = '<img class="simg" alt="">';
+    el.setAttribute('role', 'button');
+    el.addEventListener('focus', () => {
+      if (this.ui.selectedId !== it.id) this.ui.select(it.id);
+      if (!this.isOnScreen(it.id)) this.centerOn(it.id);
+    });
     (it.kind === 'map' ? this.el.maps : this.el.items).appendChild(el);
     this.els.set(it.id, el);
     return el;
@@ -304,6 +345,12 @@ export class Stage {
     el.classList.toggle('locked', it.locked);
     el.classList.toggle('hidden-gm', it.hidden);
     el.classList.toggle('noedit', !this.canEdit(it));
+    el.classList.toggle('turn', it.id === this.activeTurn);
+    // Tab reaches what this person may pick up; the name says what it is.
+    el.tabIndex = this.canSelect(it) ? 0 : -1;
+    el.setAttribute('aria-pressed', String(selected));
+    const st = it.kind === 'char' ? this.status(it) : null;
+    el.setAttribute('aria-label', [itemName(it), ...(st?.bars.map((b) => `${b.label} ${b.current}/${b.max}`) ?? []), ...(st?.icons.map((i) => i.label) ?? [])].join(', '));
 
     if (it.kind === 'char') {
       el.style.height = `${g.size}px`;
@@ -315,6 +362,7 @@ export class Stage {
       const zoom = num(p.zoom, 1);
       img.style.transform = `translate(${num(p.ox)}%,${num(p.oy)}%) scale(${zoom * (p.flip ? -1 : 1)}, ${zoom})`;
       el.querySelector('.tag')!.textContent = String(p.name ?? '');
+      this.renderStatus(el, this.status(it));
     } else if (it.kind === 'map') {
       el.style.height = `${g.size * g.aspect}px`;
       el.style.transform = `translate(${g.x}px,${g.y}px) translate(-50%,-50%) rotate(${g.rot}deg)`;
@@ -340,6 +388,49 @@ export class Stage {
       (h as HTMLElement).title = 'ลากเพื่อหมุน';
       el.appendChild(h);
     } else if (!wantsHandle && h) h.remove();
+  }
+
+  /** HP-style bars under the token and condition icons around its top edge. */
+  private renderStatus(el: HTMLElement, s: TokenStatus | null) {
+    let ov = el.querySelector<HTMLElement>(':scope > .tok-status');
+    if (!s || (!s.bars.length && !s.icons.length)) {
+      ov?.remove();
+      return;
+    }
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.className = 'tok-status';
+      ov.setAttribute('aria-hidden', 'true');
+      el.appendChild(ov);
+    }
+    const key = JSON.stringify(s);
+    if (ov.dataset.key === key) return;
+    ov.dataset.key = key;
+    ov.replaceChildren();
+    const bars = document.createElement('div');
+    bars.className = 'tok-bars';
+    for (const b of s.bars) {
+      const bar = document.createElement('div');
+      bar.className = 'tok-bar';
+      bar.title = `${b.label} ${b.current}/${b.max}`;
+      const fill = document.createElement('i');
+      fill.style.width = `${b.max > 0 ? Math.max(0, Math.min(100, (b.current / b.max) * 100)) : 0}%`;
+      fill.style.background = b.color;
+      bar.appendChild(fill);
+      bars.appendChild(bar);
+    }
+    ov.appendChild(bars);
+    if (s.icons.length) {
+      const icons = document.createElement('div');
+      icons.className = 'tok-icons';
+      for (const i of s.icons) {
+        const sp = document.createElement('span');
+        sp.textContent = i.icon;
+        sp.title = i.label;
+        icons.appendChild(sp);
+      }
+      ov.appendChild(icons);
+    }
   }
 
   // ---- other players' live drags: ease toward the latest preview -----------------------
@@ -415,6 +506,15 @@ export class Stage {
     this.store.patch(it.id, { props: { rot: normDeg(num(it.props.rot) + deg) } }, 150);
   }
 
+  /** Moves the selected piece with the arrow keys: a fifth of a grid cell, or a whole cell with Shift. */
+  nudgeSel(key: string, cell: boolean) {
+    const it = this.selected();
+    if (!it || it.locked || !this.canEdit(it)) return;
+    const step = this.store.settings.grid.size / (cell ? 1 : 5);
+    const [dx, dy] = ({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] } as Record<string, number[]>)[key] ?? [0, 0];
+    this.store.patch(it.id, { props: { x: num(it.props.x) + dx * step, y: num(it.props.y) + dy * step } }, 150);
+  }
+
   deleteSel() {
     const it = this.selected();
     if (!it || !this.canEdit(it)) return;
@@ -440,10 +540,16 @@ export class Stage {
     };
 
     on(st, 'pointerdown', (e: PointerEvent) => this.onDown(e));
+    on(st, 'scroll', () => {
+      st.scrollTop = 0;
+      st.scrollLeft = 0;
+    });
     on(st, 'pointermove', (e: PointerEvent) => this.onMove(e));
     on(st, 'pointerup', (e: PointerEvent) => this.onUp(e));
     on(st, 'pointercancel', (e: PointerEvent) => this.onUp(e));
     on(st, 'wheel', (e: WheelEvent) => {
+      // Panels floating over the table (the character sheet) scroll themselves.
+      if ((e.target as HTMLElement).closest('.overlay-ui')) return;
       e.preventDefault();
       const s = this.stageSize();
       this.zoomAt(e.clientX - s.l, e.clientY - s.t, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));
@@ -668,6 +774,13 @@ export class Stage {
     if (this.fogTool.key(e)) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.toLowerCase();
+    const onTable = t === document.body || t === this.el.stage || t.classList.contains('item');
+    if (e.key.startsWith('Arrow') && onTable && this.ui.selectedId) {
+      e.preventDefault();
+      this.nudgeSel(e.key, e.shiftKey);
+      return;
+    }
+    if (e.key === ' ' && !onTable) return;
     if (e.key === ' ') {
       e.preventDefault();
       if (!this.spaceHeld) {
@@ -688,7 +801,7 @@ export class Stage {
     else if (k === '+' || k === '=') this.zoomCenter(1.3);
     else if (k === '-') this.zoomCenter(1 / 1.3);
     else if (k === 'escape') this.ui.select(null);
-    else if ((k === 'delete' || k === 'backspace') && this.ui.selectedId) {
+    else if ((k === 'delete' || k === 'backspace') && this.ui.selectedId && onTable) {
       e.preventDefault();
       this.deleteSel();
     }
@@ -704,4 +817,13 @@ export class Stage {
     for (const el of this.els.values()) el.remove();
     this.els.clear();
   }
+}
+
+/** What a screen reader hears for a piece on the table. */
+function itemName(it: ItemRow) {
+  const hidden = it.hidden ? ' (ซ่อนจากผู้เล่น)' : '';
+  const locked = it.locked ? ' (ล็อก)' : '';
+  if (it.kind === 'char') return `ตัวละคร ${String(it.props.name ?? '') || 'ไม่มีชื่อ'}${hidden}${locked}`;
+  if (it.kind === 'map') return `แมพ ${String(it.props.name ?? '')}${hidden}${locked}`;
+  return `สติกเกอร์${it.props.emoji ? ` ${String(it.props.emoji)}` : ''}${hidden}${locked}`;
 }

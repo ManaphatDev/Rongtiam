@@ -1,5 +1,5 @@
 // Shared steps for the multiplayer specs.
-import { expect, type Browser, type Page } from '@playwright/test';
+import { expect, type Browser, type BrowserContextOptions, type Page } from '@playwright/test';
 
 /** Drops a generated PNG onto the stage, as if dragged from the desktop. */
 export async function dropImage(page: Page, name: string, w: number, h: number, color: string) {
@@ -23,9 +23,9 @@ export async function dropImage(page: Page, name: string, w: number, h: number, 
 }
 
 /** GM creates a room and a player joins with approval; both end on a live table. */
-export async function openRoom(browser: Browser, name: string) {
+export async function openRoom(browser: Browser, name: string, opts: { playerOptions?: BrowserContextOptions } = {}) {
   const gmCtx = await browser.newContext();
-  const plCtx = await browser.newContext();
+  const plCtx = await browser.newContext(opts.playerOptions);
   const gm = await gmCtx.newPage();
   const pl = await plCtx.newPage();
 
