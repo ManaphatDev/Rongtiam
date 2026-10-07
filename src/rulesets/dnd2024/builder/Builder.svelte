@@ -66,6 +66,7 @@
   async function rollScores() {
     if (rolling || draft.rolled) return;
     rolling = true;
+    error = '';
     // Captured before the first await: the panel may be closed while the dice are still rolling, and the result
     // must still be kept (otherwise closing and reopening would buy a re-roll).
     const id = roomId;
@@ -75,15 +76,24 @@
       d.rolled = rolled;
       d.scores = { method: 'roll', assign: {}, base: pointBuyStart() };
     };
+    // A result without six totals is not a roll of ROLL_EXPR: keep nothing, so the player can throw again.
+    const whole = (rolled: number[]) => rolled.length === 6;
     try {
       const final = await rollDice('ค่าพลัง', ROLL_EXPR, (result) => {
         // The result is final before the dice land: save it now (the screen only shows it after they land), so a
         // reload or closed tab mid-roll cannot buy a second roll.
+        const rolled = scoresFromRoll(result);
+        if (!whole(rolled)) return;
         const kept = $state.snapshot(target) as Draft;
-        apply(kept, scoresFromRoll(result));
+        apply(kept, rolled);
         saveDraft(id, { step: startedOn, draft: kept });
       });
-      apply(target, scoresFromRoll(final));
+      const rolled = scoresFromRoll(final);
+      if (!whole(rolled)) {
+        error = 'ผลทอยไม่ครบ 6 ค่า ลองทอยใหม่';
+        return;
+      }
+      apply(target, rolled);
       saveDraft(id, { step: startedOn, draft: $state.snapshot(target) as Draft });
     } catch {
       // the table already told the player the roll failed
@@ -168,6 +178,7 @@
       <button class="btn primary" type="button" disabled={mine.length > 0} onclick={() => go(at + 1)}>ถัดไป</button>
     {/if}
     {#if error}<span class="hint err" role="status">{error}</span>{/if}
-    <TwoStepButton label="ลบร่างและเริ่มใหม่" onconfirm={discard} />
+    <!-- Not while the dice are rolling: the result would land in a draft that was just wiped. -->
+    {#if !rolling}<TwoStepButton label="ลบร่างและเริ่มใหม่" onconfirm={discard} />{/if}
   </footer>
 </section>

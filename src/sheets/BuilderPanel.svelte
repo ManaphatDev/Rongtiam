@@ -15,7 +15,9 @@
   let Builder = $state<Component<BuilderProps> | null>(null);
   let failed = $state(false);
   let loadedFor = '';
+  let attempt = $state(0); // bumped by "ลองใหม่" to load again after a failure
   $effect(() => {
+    void attempt;
     if (!ui.builderOpen) return;
     const id = host.roomRuleset;
     if (loadedFor === id) return;
@@ -47,6 +49,11 @@
     }
   }
 
+  function retry() {
+    loadedFor = '';
+    attempt++;
+  }
+
   /** Creates the character; true when it was made (the builder then clears its draft). */
   async function done(data: Record<string, unknown>) {
     const ruleset = host.roomRuleset; // read before the await
@@ -63,9 +70,14 @@
     <Builder ctx={host.ctx} roomId={store.state.room?.id ?? 'local'} {rollDice} onDone={done} onClose={() => (ui.builderOpen = false)} />
   {:else}
     <section class="sheet-panel overlay-ui" aria-label="ตัวช่วยสร้างตัวละคร">
+      <header class="sheet-bar">
+        <h2>สร้างตัวละคร D&amp;D</h2>
+        <button class="btn small" type="button" onclick={() => (ui.builderOpen = false)}>ปิด</button>
+      </header>
       <div class="sheet-body">
         {#if failed}
-          <p class="hint err">โหลดตัวช่วยสร้างไม่สำเร็จ ลองรีเฟรชหน้า</p>
+          <p class="hint err" role="alert">โหลดตัวช่วยสร้างไม่สำเร็จ</p>
+          <button class="btn" type="button" onclick={retry}>ลองใหม่</button>
         {:else}
           <div class="spinner" role="status" aria-label="กำลังโหลด…"></div>
         {/if}

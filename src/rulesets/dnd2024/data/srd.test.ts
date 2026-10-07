@@ -41,6 +41,9 @@ describe('SRD 5.2 dataset', () => {
     expect(weapon('dagger')).toMatchObject({ ranged: false, simple: true });
     expect(weapon('dagger').properties).toEqual(expect.arrayContaining(['finesse', 'light', 'thrown']));
     expect(weapon('longbow')).toMatchObject({ ranged: true, range: [150, 600] });
+    // thrown melee weapons are melee, but the Dart is listed with the ranged ones
+    expect(weapon('handaxe').ranged).toBe(false);
+    expect(weapon('dart')).toMatchObject({ ranged: true, range: [20, 60] });
     expect(weapon('longsword').versatile).toBe('1d10');
     expect(armor('chain-mail')).toMatchObject({ category: 'heavy', base: 16, dex: false, strength: 13 });
     expect(armor('breastplate')).toMatchObject({ category: 'medium', base: 14, dex: true, cap: 2 });

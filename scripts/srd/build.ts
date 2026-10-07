@@ -221,6 +221,15 @@ const CORRECTIONS: { what: string; apply: () => boolean }[] = [
       return true;
     },
   },
+  {
+    what: 'the Dart is a Ranged weapon in the SRD weapons table (Open5e drops its range because it has Thrown)',
+    apply: () => {
+      const w = weapons.find((x) => x.key === 'dart');
+      if (!w || w.ranged) return false;
+      w.ranged = true;
+      return true;
+    },
+  },
 ];
 const applied = CORRECTIONS.filter((c) => c.apply()).map((c) => c.what);
 
