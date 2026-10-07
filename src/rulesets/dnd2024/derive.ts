@@ -66,7 +66,7 @@ export interface Derived {
 }
 
 /** Martial weapons each class is proficient with (everyone has Simple weapons). */
-function martialProficient(classKey: string, w: SrdWeapon) {
+export function martialProficient(classKey: string, w: SrdWeapon) {
   if (['barbarian', 'fighter', 'paladin', 'ranger'].includes(classKey)) return true;
   if (classKey === 'rogue') return w.properties.includes('finesse') || w.properties.includes('light');
   if (classKey === 'monk') return w.properties.includes('light');

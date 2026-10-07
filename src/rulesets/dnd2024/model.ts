@@ -70,6 +70,11 @@ export const D2024Z = z.object({
     ac: z.number().int().optional(), maxHp: z.number().int().optional(),
     speed: z.number().int().optional(), initiative: z.number().int().optional(),
   }).default({}),
+  /** Feats by SRD key (origin feat, fighting style...). Their text is written into `features`. */
+  feats: z.array(z.string()).default([]),
+  languages: z.array(z.string().max(40)).default([]),
+  /** Tool proficiencies, as names. */
+  tools: z.array(z.string().max(80)).default([]),
   /** Builder / level-up choices (phase 5). */
   choices: z.record(z.string(), z.unknown()).default({}),
 });
