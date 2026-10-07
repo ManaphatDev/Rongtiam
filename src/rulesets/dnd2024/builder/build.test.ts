@@ -61,6 +61,18 @@ describe('build: languages the class grants', () => {
   });
 });
 
+describe('build: a feat taken twice', () => {
+  it('a Human Acolyte can take Magic Initiate again with another list; both land on the sheet', () => {
+    const d = autoDraft(srd, 'fighter', 'acolyte', 'human');
+    d.speciesFeat = 'magic-initiate';
+    d.speciesFeatPicks = { list: 'wizard', cantrips: ['fire-bolt', 'light'], spell: 'mage-armor', skills: [] };
+    const c = build(d, srd);
+    expect(c.feats.filter((k) => k === 'magic-initiate')).toHaveLength(2);
+    expect(c.features).toContain('Fire Bolt, Light');
+    expect(c.features).toContain('Mage Armor');
+  });
+});
+
 describe('build: golden characters', () => {
   it('Fighter with chain mail', () => {
     const c = build(fighter(), srd);

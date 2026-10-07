@@ -125,6 +125,7 @@
 | Expertise (เชี่ยวชาญสกิล) | ClassStep.svelte |
 | Feat: … · สกิล: … · เครื่องมือ: … | BackgroundStep.svelte |
 | Hit Die d… · เซฟ … · อาวุธ: … · เกราะ: … | ClassStep.svelte |
+| Magic Initiate ครั้งที่สองต้องใช้รายชื่อเวทอื่น ฉากหลังใช้ …… แล้ว | validate.ts |
 | Magic Initiate: แคนทริป | FeatPicks.svelte |
 | Magic Initiate: เลือกแคนทริป 2 อย่าง | validate.ts |
 | Magic Initiate: เลือกเวทเลเวล 1 หนึ่งอย่าง | validate.ts |

@@ -2,7 +2,7 @@
   import type { Srd } from '../../data/schema';
   import { SKILLS, SPECIES_TH, type Skill } from '../../i18n/th';
   import { emptyPicks, type Draft } from '../draft';
-  import { backgroundFeat, originFeats, skillSources, speciesFeatRef, speciesOf, speciesRulesOf } from '../helpers';
+  import { backgroundFeat, originFeats, repeatable, skillSources, speciesFeatRef, speciesOf, speciesRulesOf } from '../helpers';
   import FeatPicks from './FeatPicks.svelte';
   import Pick from './Pick.svelte';
 
@@ -13,7 +13,7 @@
   const src = $derived(skillSources(draft, srd));
   /** Skills the background and the class already hold. */
   const heldBefore = $derived(new Set([...src.bg, ...src.cls]));
-  const bgFeatKey = $derived(backgroundFeat(draft, srd)?.key);
+  const bgFeat = $derived(backgroundFeat(draft, srd));
   const feat = $derived(speciesFeatRef(draft, srd));
 
   function pickSpecies(key: string) {
@@ -48,9 +48,9 @@
         options={(c.from === 'any' ? Object.keys(SKILLS) : c.from).map((s) => ({ id: s, label: SKILLS[s as Skill].th, disabled: heldBefore.has(s) }))}
         value={draft.speciesSkill} onpick={(s) => (draft.speciesSkill = s)} />
     {:else if c.kind === 'originFeat'}
-      <Pick legend="Origin feat" options={originFeats(srd).map((f) => ({ id: f.key, label: f.name, disabled: f.key === bgFeatKey }))}
+      <Pick legend="Origin feat" options={originFeats(srd).map((f) => ({ id: f.key, label: f.name, disabled: f.key === bgFeat?.key && !repeatable(f) }))}
         value={draft.speciesFeat} onpick={pickFeat} />
-      {#if feat}<FeatPicks {feat} bind:picks={draft.speciesFeatPicks} {srd} taken={[...heldBefore, ...src.sp]} />{/if}
+      {#if feat}<FeatPicks {feat} usedList={feat.key === bgFeat?.key ? bgFeat.list : null} bind:picks={draft.speciesFeatPicks} {srd} taken={[...heldBefore, ...src.sp]} />{/if}
     {/if}
   {/each}
 {/if}

@@ -7,7 +7,7 @@ import { POINT_BUY_BUDGET, baseScores } from './abilities';
 import type { Draft, FeatPicks } from './draft';
 import {
   backgroundFeat, backgroundOf, cantripTarget, classOf, classSpells, fightingStyleFeats, finalAbilities, level1Points,
-  languagePicks, listSpells, needsSpellStep, originFeats, proficientSkills, skillSources, speciesFeatRef, speciesOf, speciesRulesOf,
+  languagePicks, listSpells, needsSpellStep, originFeats, proficientSkills, skillSources, repeatable, speciesFeatRef, speciesOf, speciesRulesOf,
   spellTarget, weaponPool, type FeatRef,
 } from './helpers';
 
@@ -98,8 +98,12 @@ function speciesMessages(d: Draft, srd: Srd): string[] {
     }
     if (c.kind === 'originFeat') {
       const feat = speciesFeatRef(d, srd);
+      const bgFeat = backgroundFeat(d, srd);
       if (!feat || !originFeats(srd).some((f) => f.key === feat.key)) out.push('เลือก Origin feat');
-      else if (feat.key === backgroundFeat(d, srd)?.key) out.push('เลือก Origin feat อื่น ฉากหลังให้ feat นี้แล้ว');
+      else if (feat.key === bgFeat?.key && !repeatable(srd.feats.find((f) => f.key === feat.key)!)) out.push('เลือก Origin feat อื่น ฉากหลังให้ feat นี้แล้ว');
+      else if (feat.key === 'magic-initiate' && bgFeat?.key === feat.key && d.speciesFeatPicks.list === bgFeat.list) {
+        out.push(`Magic Initiate ครั้งที่สองต้องใช้รายชื่อเวทอื่น ฉากหลังใช้ ${bgFeat.list![0].toUpperCase()}${bgFeat.list!.slice(1)} แล้ว`);
+      }
       else out.push(...featPickMessages(feat, d.speciesFeatPicks, srd, [...src.bg, ...src.cls, ...src.sp]));
     }
   }

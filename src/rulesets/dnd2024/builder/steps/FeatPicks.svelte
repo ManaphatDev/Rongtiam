@@ -7,7 +7,11 @@
   import Pick from './Pick.svelte';
   import PickMany from './PickMany.svelte';
 
-  let { feat, picks = $bindable(), srd, taken = [] }: { feat: FeatRef; picks: FeatPicks; srd: Srd; taken?: string[] } = $props();
+  let { feat, picks = $bindable(), srd, taken = [], usedList = null }: {
+    feat: FeatRef; picks: FeatPicks; srd: Srd; taken?: string[];
+    /** Taking Magic Initiate a second time: the list the first one used, which this one may not repeat. */
+    usedList?: FeatList | null;
+  } = $props();
 
   /** The list is fixed by a background ("Magic Initiate (Cleric)") or chosen here. */
   const list = $derived(feat.list ?? picks.list);
@@ -17,7 +21,7 @@
 {#if feat.key === 'magic-initiate'}
   <p class="hint">{feat.name}: เลือกแคนทริป 2 อย่าง และเวทเลเวล 1 อีก 1 อย่าง จากรายชื่อเดียวกัน</p>
   {#if !feat.list}
-    <Pick legend="รายชื่อเวทของ Magic Initiate" options={FEAT_LISTS.map((l) => ({ id: l, label: listName(l) }))} value={picks.list}
+    <Pick legend="รายชื่อเวทของ Magic Initiate" options={FEAT_LISTS.map((l) => ({ id: l, label: listName(l), disabled: l === usedList }))} value={picks.list}
       onpick={(id) => (picks = { list: id as FeatList, cantrips: [], spell: null, skills: [] })} />
   {/if}
   {#if list}

@@ -5,7 +5,7 @@ import { SKILLS } from '../i18n/th';
 import { pointBuyStart } from './abilities';
 import { emptyDraft, type Draft } from './draft';
 import { autoDraft } from './fixtures';
-import { cantripTarget, listSpells, needsSpellStep, proficientSkills, spellTarget } from './helpers';
+import { cantripTarget, listSpells, needsSpellStep, proficientSkills, repeatable, spellTarget } from './helpers';
 import { validate, type StepId } from './validate';
 
 const srd = SrdZ.parse(raw);
@@ -128,6 +128,22 @@ describe('species step', () => {
     expect(steps(d)).toEqual([]);
     d.speciesFeatPicks.skills = [taken[0], ...fresh.slice(0, 2)]; // one repeats a skill already held
     expect(steps(d)).toEqual(['species']);
+  });
+
+  it('Human Versatile: a repeatable feat may repeat the background\'s, Magic Initiate only with another spell list', () => {
+    const d = autoDraft(srd, 'fighter', 'acolyte', 'human'); // Acolyte: Magic Initiate (Cleric)
+    d.speciesFeat = 'magic-initiate';
+    const pick = (list: 'cleric' | 'wizard') => {
+      d.speciesFeatPicks = { list, cantrips: listSpells(list, 0, srd).slice(0, 2).map((s) => s.key), spell: listSpells(list, 1, srd)[0].key, skills: [] };
+    };
+    pick('cleric');
+    expect(validate(d, srd).map((i) => i.message)).toEqual(['Magic Initiate ครั้งที่สองต้องใช้รายชื่อเวทอื่น ฉากหลังใช้ Cleric แล้ว']);
+    pick('wizard');
+    expect(validate(d, srd)).toEqual([]);
+  });
+
+  it('only feats whose SRD text says they can be taken more than once are repeatable', () => {
+    expect(srd.feats.filter((f) => f.type === 'origin' && repeatable(f)).map((f) => f.key).sort()).toEqual(['magic-initiate', 'skilled']);
   });
 });
 
