@@ -27,7 +27,7 @@
 </script>
 
 {#if issues.length}
-  <p class="hint err" role="status">ยังสร้างไม่ได้ ต้องแก้ {issues.length} เรื่อง:</p>
+  <p class="hint err" role="status">ยังสร้างไม่ได้ เหลือ {issues.length} ข้อที่ต้องแก้:</p>
   <ul class="plain-list">
     {#each issues as i, n (n)}
       <li>
@@ -57,9 +57,9 @@
     <p>เวท: DC {d.spellcasting.dc}, โจมตี {signed(d.spellcasting.attack)} — {c.spells.known.map(spellName).join(', ')}</p>
   {/if}
   <p>ภาษา: {c.languages.join(', ')}{c.tools.length ? ` · เครื่องมือ: ${c.tools.join(', ')}` : ''}</p>
-  <p>เงิน: {c.money.gp} GP · ของ: {[...c.weapons.map((k) => srd.weapons.find((w) => w.key === k)?.name ?? k), ...c.inventory.map((l) => (l.qty > 1 ? `${l.name} ×${l.qty}` : l.name))].join(', ')}</p>
+  <p>เงิน: {c.money.gp} GP · อุปกรณ์: {[...c.weapons.map((k) => srd.weapons.find((w) => w.key === k)?.name ?? k), ...c.inventory.map((l) => (l.qty > 1 ? `${l.name} ×${l.qty}` : l.name))].join(', ')}</p>
   <p class="hint">
-    ผลของ feat และลักษณะเผ่าบางอย่าง (เช่น โบนัสของ Alert หรือ Dwarven Toughness) ไม่ถูกคำนวณอัตโนมัติ
-    ข้อความของทุกอย่างอยู่ในช่อง "ความสามารถและ feat" บนชีท ปรับค่าได้ในช่อง "ค่าที่กำหนดเอง"
+    ระบบยังไม่คำนวณผลของ feat และลักษณะเผ่าบางอย่างให้ (เช่น โบนัสของ Alert หรือ Dwarven Toughness)
+    รายละเอียดทั้งหมดอยู่ในช่อง "ความสามารถและ feat" บนชีท ถ้าต้องแก้ตัวเลข ใช้ช่อง "ค่าที่กำหนดเอง"
   </p>
 {/if}

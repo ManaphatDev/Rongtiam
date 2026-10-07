@@ -168,6 +168,6 @@
       <button class="btn primary" type="button" disabled={mine.length > 0} onclick={() => go(at + 1)}>ถัดไป</button>
     {/if}
     {#if error}<span class="hint err" role="status">{error}</span>{/if}
-    <TwoStepButton label="ทิ้งร่าง" onconfirm={discard} />
+    <TwoStepButton label="ลบร่างและเริ่มใหม่" onconfirm={discard} />
   </footer>
 </section>

@@ -86,7 +86,7 @@ test('builds a Cleric on a phone', async ({ page }) => {
   await chip(page, 'ฉากหลัง', 'Acolyte').click();
   await chip(page, 'ค่าพลัง +2', 'ความเฉลียวฉลาด').click();
   await chip(page, 'ค่าพลัง +1', 'สติปัญญา').click();
-  await pickAll(page, /^Magic Initiate: cantrip/, ['Guidance', 'Light']);
+  await pickAll(page, /^Magic Initiate: แคนทริป/, ['Guidance', 'Light']);
   await chip(page, 'Magic Initiate: เวทเลเวล 1', 'Bless').click();
   await next(page);
 
@@ -105,7 +105,7 @@ test('builds a Cleric on a phone', async ({ page }) => {
   await chip(page, 'อุปกรณ์เริ่มต้นของฉากหลัง', 'ชุด A').click();
   await next(page);
 
-  await pickAll(page, /^Cantrip/, ['Sacred Flame', 'Mending', 'Thaumaturgy']);
+  await pickAll(page, /^แคนทริป/, ['Sacred Flame', 'Mending', 'Thaumaturgy']);
   await pickAll(page, /^เวทเลเวล 1/, ['Cure Wounds', 'Healing Word', 'Guiding Bolt', 'Shield of Faith']);
   await next(page);
 
@@ -130,7 +130,7 @@ test('builds a Wizard on a phone', async ({ page }) => {
   await chip(page, 'ฉากหลัง', 'Sage').click();
   await chip(page, 'ค่าพลัง +2', 'สติปัญญา').click();
   await chip(page, 'ค่าพลัง +1', 'ความอดทน').click();
-  await pickAll(page, /^Magic Initiate: cantrip/, ['Elementalism', 'Fire Bolt']);
+  await pickAll(page, /^Magic Initiate: แคนทริป/, ['Elementalism', 'Fire Bolt']);
   await chip(page, 'Magic Initiate: เวทเลเวล 1', 'Mage Armor').click();
   await next(page);
 
@@ -149,7 +149,7 @@ test('builds a Wizard on a phone', async ({ page }) => {
   await chip(page, 'อุปกรณ์เริ่มต้นของฉากหลัง', 'ชุด A').click();
   await next(page);
 
-  await pickAll(page, /^Cantrip/, ['Acid Splash', 'Chill Touch', 'Dancing Lights']);
+  await pickAll(page, /^แคนทริป/, ['Acid Splash', 'Chill Touch', 'Dancing Lights']);
   await pickAll(page, /^เวทเลเวล 1 ในสมุดเวท/, ['Alarm', 'Burning Hands', 'Charm Person', 'Chromatic Orb', 'Color Spray', 'Comprehend Languages']);
   await next(page);
 
@@ -173,7 +173,7 @@ test('keeps the draft when the panel is closed, and drops it when told to', asyn
   await page.getByRole('button', { name: 'สร้างตัวละคร', exact: true }).click();
   await expect(chip(page, 'อาชีพ', 'Fighter')).toHaveAttribute('aria-pressed', 'true');
 
-  await wizard(page).getByRole('button', { name: 'ทิ้งร่าง' }).click();
+  await wizard(page).getByRole('button', { name: 'ลบร่างและเริ่มใหม่' }).click();
   await wizard(page).getByRole('button', { name: 'กดอีกครั้งเพื่อยืนยัน' }).click();
   await expect(chip(page, 'อาชีพ', 'Fighter')).toHaveAttribute('aria-pressed', 'false');
 });

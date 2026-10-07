@@ -34,6 +34,8 @@ export const speciesFeatRef = (d: Draft, srd: Srd): FeatRef | null => {
   const f = srd.feats.find((x) => x.key === d.speciesFeat);
   return f ? { key: f.key, name: f.name, list: null } : null;
 };
+/** A feat the SRD lets a character take more than once (Magic Initiate with another list, Skilled). */
+export const repeatable = (f: { desc: string }) => /take this feat more than once/i.test(f.desc);
 export const originFeats = (srd: Srd) => srd.feats.filter((f) => f.type === 'origin');
 export const fightingStyleFeats = (srd: Srd) => srd.feats.filter((f) => f.type === 'fighting style');
 
