@@ -40,7 +40,7 @@ function fakeServer(initial: ItemRow[]) {
 
 function setup(initial: ItemRow[] = [base('a')]) {
   const state = new RoomState();
-  state.loadSnapshot({ seq: 1, room: { id: 'r1', slug: 's', name: 'n', ruleset_id: 'none', settings: { grid: { on: false, size: 70 }, snap: true }, rev: 0, created_by: null }, members: [], items: initial, assets: [], rolls: [] });
+  state.loadSnapshot({ seq: 1, room: { id: 'r1', slug: 's', name: 'n', ruleset_id: 'none', settings: { grid: { on: false, size: 70 }, snap: true }, rev: 0, created_by: null }, members: [], items: initial, assets: [], rolls: [], characters: [], content: [], initiative: [] });
   const server = fakeServer(initial);
   return { state, server };
 }

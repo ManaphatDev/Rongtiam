@@ -23,6 +23,12 @@ function store(key: string, v: unknown) {
 
 export class Ui {
   selectedId = $state<string | null>(null);
+  /** The character sheet open in the sheet panel. */
+  sheetOpen = $state<string | null>(null);
+  /** Initiative tracker expanded. */
+  initOpen = $state(false);
+  /** GM: the custom ruleset's template editor. */
+  templateOpen = $state(false);
   tab = $state<Tab>('map');
   tool = $state<Tool>('select');
   sideHidden = $state(false);

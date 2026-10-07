@@ -283,10 +283,10 @@ img.broken{visibility:hidden}
 .stage.playerview .item.hidden-gm{display:none}
 
 /* ---- 3D dice ---- */
-.dicecanvas{position:absolute;inset:0;width:100%;height:100%;z-index:15;pointer-events:none;display:none;transition:opacity .15s linear}
+.dicecanvas{position:absolute;inset:0;width:100%;height:100%;z-index:23;pointer-events:none;display:none;transition:opacity .15s linear}
 .dicecanvas.on{display:block}
 .hint.err{color:var(--danger)}
-.dicetags{position:absolute;inset:0;z-index:16;pointer-events:none;display:none;overflow:hidden}
+.dicetags{position:absolute;inset:0;z-index:24;pointer-events:none;display:none;overflow:hidden}
 .dicetags.on{display:block}
 .dicetag{position:absolute;left:0;top:0;min-width:34px;padding:3px 10px;border-radius:999px;text-align:center;
   font:600 20px/1.2 'Kanit',sans-serif;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--glass-strong);border:1px solid var(--glass-edge);
@@ -312,3 +312,116 @@ img.broken{visibility:hidden}
 /* ---- keyboard on the table ---- */
 .item:focus-visible{outline:calc(3px*var(--inv,1)) solid var(--sel);outline-offset:calc(6px*var(--inv,1))}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ---- character sheets ---- */
+.field select,.field textarea,.row>select,.inventory input{min-height:40px;border:1px solid var(--glass-edge);border-radius:12px;padding:0 10px;background:var(--field);color:var(--ink)}
+.field textarea{padding:8px 10px;resize:vertical;font:inherit;line-height:1.5}
+.field.grow{flex:2 1 180px}
+.field.narrow{flex:0 1 96px}
+.field.narrow input{width:100%}
+.sheet-panel{position:absolute;top:10px;right:10px;bottom:10px;z-index:22;width:min(820px,calc(100% - 96px));display:flex;flex-direction:column;
+  border-radius:20px;background:var(--glass-strong);border:1px solid var(--glass-edge);box-shadow:var(--glass-shadow),var(--glass-hi);
+  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);outline:none}
+.sheet-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--glass-edge)}
+.sheet-bar:last-child{border-bottom:0;border-top:1px solid var(--glass-edge)}
+.sheet-bar h2{margin:0;flex:1;font:600 18px/1.3 'Kanit',sans-serif;min-width:0;overflow-wrap:anywhere}
+.sheet-body{flex:1;min-height:0;overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:14px;overscroll-behavior:contain}
+.sheet{display:flex;flex-direction:column;gap:14px}
+.sheet h3{margin:0 0 8px;font:600 15px/1.3 'Kanit',sans-serif}
+.sheet h3 small{font:400 13px 'IBM Plex Sans Thai',sans-serif;color:var(--ink-soft)}
+.sheet-head{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.sheet-head .field{flex:1 1 140px}
+.block{border:1px solid var(--glass-edge);border-radius:16px;background:var(--field);padding:12px;display:flex;flex-direction:column;gap:8px}
+.block>summary{cursor:pointer;font-weight:500}
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px}
+.stat{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:76px;padding:8px;border-radius:14px;
+  border:1px solid var(--glass-edge);background:var(--field);text-align:center}
+.stat span{font-size:12px;color:var(--ink-soft)}
+.stat b{font:600 24px/1.1 'Kanit',sans-serif;font-variant-numeric:tabular-nums}
+.stat small{font-size:12px;color:var(--ink-soft)}
+.stat.as-btn{cursor:pointer;color:inherit;font:inherit}
+.stat.as-btn:hover{background:var(--hover)}
+.hp-edit{display:flex;align-items:baseline;gap:4px}
+.hp-edit input{width:64px;min-height:34px;text-align:center;font:600 20px 'Kanit',sans-serif;border:1px solid var(--glass-edge);border-radius:10px;background:var(--field);color:var(--ink)}
+.stat .tiny{font-size:12px;color:var(--ink-soft);display:flex;gap:4px;align-items:center}
+.stat .tiny input{width:48px;min-height:28px;border:1px solid var(--glass-edge);border-radius:8px;background:var(--field);color:var(--ink);text-align:center}
+.abilities{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px}
+.ability{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:14px;border:1px solid var(--glass-edge);background:var(--field)}
+.ability input{text-align:center;font:600 20px 'Kanit',sans-serif}
+.btn.prof{border-color:var(--teal-solid);font-weight:600}
+.sheet-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;align-items:start}
+.sheet-cols .stack{display:flex;flex-direction:column;gap:14px}
+.skills,.attacks,.spells,.inventory{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.skills li,.attacks li,.inventory li{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.skills select{min-height:34px;border:1px solid var(--glass-edge);border-radius:10px;background:var(--field);color:var(--ink);font-size:13px}
+.skills .nm,.inventory .nm{flex:1;min-width:0}
+.attacks .nm{flex:1 1 9em;min-width:0;overflow-wrap:anywhere}
+.skills .nm small{color:var(--ink-soft)}
+.inventory input[type=text]{flex:1;min-width:120px}
+.inventory input[type=number]{width:72px}
+.spells li{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.spells .pick{flex:1;min-width:0;text-align:left;min-height:36px;border:1px solid var(--glass-edge);border-radius:10px;background:transparent;cursor:pointer;padding:0 10px}
+.spells .lv{font-size:12px;color:var(--ink-soft);margin-inline-end:6px}
+.spell-desc{flex-basis:100%;padding:8px 10px;border-radius:10px;background:var(--field);white-space:pre-line;font-size:14px;max-width:72ch}
+.slots{display:flex;flex-wrap:wrap;gap:8px}
+.slots small{font-size:12px;color:var(--ink-soft)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{min-height:34px;padding:0 10px;border-radius:999px;border:1px solid var(--glass-edge);background:var(--field);cursor:pointer;font-size:13px}
+.chip[aria-pressed="true"]{background:var(--teal-solid);color:var(--teal-ink);border-color:transparent;font-weight:600}
+.chip:disabled{cursor:default}
+.custom-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.field.computed{justify-content:center;padding:8px 10px;border-radius:12px;border:1px dashed var(--glass-edge)}
+.field.computed b{font:600 20px 'Kanit',sans-serif;color:var(--ink);font-variant-numeric:tabular-nums}
+.field.computed .err,.inventory .err{color:var(--danger);font-size:12px}
+.roster .pick small{margin-inline-start:auto;white-space:nowrap}
+@media (max-width:760px){
+  .sheet-panel{left:8px;right:8px;top:8px;bottom:8px;width:auto}
+}
+
+/* ---- token status (bars and condition icons) ---- */
+.tok-status{position:absolute;inset:0;pointer-events:none}
+.tok-bars{position:absolute;left:8%;right:8%;bottom:calc(-1 * max(6px, var(--s) * .14));display:flex;flex-direction:column;gap:max(1px, calc(var(--s) * .02))}
+.tok-bar{height:max(4px, calc(var(--s) * .09));border-radius:999px;background:rgba(10,8,16,.7);overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.35)}
+.tok-bar i{display:block;height:100%;border-radius:inherit}
+.tok-icons{position:absolute;right:-12%;top:-12%;display:flex;flex-wrap:wrap-reverse;justify-content:flex-end;gap:1px;max-width:70%;
+  font-size:max(11px, calc(var(--s) * .24));line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+.item.char .tag{top:calc(100% + max(10px, var(--s) * .2))}
+@media (prefers-reduced-motion:no-preference){.tok-bar i{transition:width .3s ease-out}}
+
+/* ---- initiative ---- */
+.init-panel{position:absolute;right:10px;top:10px;z-index:21;width:min(320px,calc(100% - 96px));max-height:calc(100% - 20px);overflow:auto;
+  display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:18px;background:var(--glass-strong);border:1px solid var(--glass-edge);
+  box-shadow:var(--glass-shadow),var(--glass-hi);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
+.init-panel header{display:flex;align-items:center;gap:6px}
+.init-panel h2{flex:1;margin:0;font:600 16px/1.3 'Kanit',sans-serif}
+.init-panel h2 small{font:400 13px 'IBM Plex Sans Thai',sans-serif;color:var(--ink-soft)}
+.init-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.init-list li{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:12px;border:1px solid transparent}
+.init-list li.current{border-color:var(--sel);background:rgba(255,210,74,.16)}
+.init-list .score{min-width:2.2em;text-align:center;font:600 16px 'Kanit',sans-serif;font-variant-numeric:tabular-nums}
+.init-list .pick{flex:1;min-width:0;text-align:start;border:0;background:transparent;cursor:pointer;min-height:32px;overflow-wrap:anywhere}
+.init-list .pick:disabled{cursor:default;color:inherit}
+.init-list input{width:56px;min-height:32px;border:1px solid var(--glass-edge);border-radius:8px;background:var(--field);color:var(--ink);text-align:center}
+/* Whose turn it is: a gold glow on the token's disc (the ::after ring is the selection outline). */
+.item.turn .disc{box-shadow:0 0 0 calc(4px*var(--inv,1)) var(--sel),0 0 calc(18px*var(--inv,1)) var(--sel)}
+@media (prefers-reduced-motion:no-preference){.item.turn .disc{animation:turnpulse 1.6s ease-in-out infinite}
+  @keyframes turnpulse{50%{box-shadow:0 0 0 calc(4px*var(--inv,1)) var(--sel),0 0 calc(4px*var(--inv,1)) var(--sel)}}}
+
+/* ---- custom template editor ---- */
+.tpl-row{border:1px solid var(--glass-edge);border-radius:14px;padding:8px 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin:0}
+.tpl-row legend{font-weight:600;padding:0 4px}
+.tpl-row .field{flex:1 1 130px}
+.tpl-sub{flex-basis:100%;display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:12px;background:var(--field)}
+.err-list{border-color:var(--danger)}
+.err-list ul{margin:0;padding-inline-start:20px;color:var(--danger)}
+.field input[type=color]{min-height:40px;padding:2px;border-radius:10px;border:1px solid var(--glass-edge);background:var(--field)}
+
+.card a,.hint a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.credits{width:min(640px,100%)}
+.credits p{margin:0;max-width:72ch;overflow-wrap:anywhere}
+
+.skills li.own{border-inline-start:3px solid var(--teal-solid);padding-inline-start:6px}
+.skills .skill-name{flex:1;min-width:110px;min-height:34px;border:1px solid var(--glass-edge);border-radius:10px;padding:0 8px;background:var(--field);color:var(--ink)}
+.skills .skill-ability{min-height:34px;border:1px solid var(--glass-edge);border-radius:10px;background:var(--field);color:var(--ink);font-size:13px}
+.roster li>.pick.static{flex:1;min-width:0;display:flex;gap:10px;align-items:center;padding:6px 8px;border-radius:12px;border:1px solid var(--glass-edge);background:var(--field);cursor:default}
+.skills .skill-rank{width:56px;min-height:34px;border:1px solid var(--glass-edge);border-radius:10px;background:var(--field);color:var(--ink);text-align:center}

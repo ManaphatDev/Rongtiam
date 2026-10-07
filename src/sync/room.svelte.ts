@@ -1,10 +1,14 @@
 // One connected room: replica state + op queue + ephemeral bus + images, exposed to Svelte through version counters.
 import { AssetCache } from './assets';
-import type { Backend, ConnStatus, NewRoll } from './backend';
+import type { Backend, ConnStatus, NewCharacter, NewInit, NewRoll } from './backend';
 import { EphemeralBus } from './ephemeral';
-import { OpQueue, type SendError } from './opqueue';
+import { isPermanent, OpQueue, type SendError } from './opqueue';
+import type { Path } from './paths';
 import { RoomState } from './state';
-import { FORBIDDEN, type ItemRow, type MemberRow, type NewItem, type PatchFields, type PresenceInfo, type RoomSettings } from './types';
+import {
+  FORBIDDEN, type CharacterRow, type InitRow, type ItemRow, type MemberRow, type NewItem, type PatchFields, type PresenceInfo,
+  type RoomSettings,
+} from './types';
 
 export interface Preview {
   u: string;
@@ -40,6 +44,9 @@ export class RoomStore {
   assetsVersion = $state(0);
   roomVersion = $state(0);
   rollsVersion = $state(0);
+  charactersVersion = $state(0);
+  contentVersion = $state(0);
+  initiativeVersion = $state(0);
   online = $state.raw<PresenceInfo[]>([]);
   status = $state<ConnStatus>('connecting');
   kicked = $state<null | 'kicked' | 'banned'>(null);
@@ -73,6 +80,9 @@ export class RoomStore {
       } else if (kind === 'assets') this.assetsVersion++;
       else if (kind === 'room') this.roomVersion++;
       else if (kind === 'rolls') this.rollsVersion++;
+      else if (kind === 'characters') this.charactersVersion++;
+      else if (kind === 'content') this.contentVersion++;
+      else if (kind === 'initiative') this.initiativeVersion++;
     });
   }
 
@@ -274,6 +284,11 @@ export class RoomStore {
     }
   }
 
+  /** GM: the game system new character sheets use. */
+  async setRuleset(id: string) {
+    await this.run(() => this.backend.updateRoom({ ruleset_id: id }));
+  }
+
   async member(userId: string, fields: Partial<Pick<MemberRow, 'status' | 'role' | 'display_name' | 'color'>>) {
     try {
       await this.backend.updateMember(userId, fields);
@@ -305,7 +320,111 @@ export class RoomStore {
     }
   }
 
+  // ---- characters ------------------------------------------------------------------
+
+  private charTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private charInflight = new Set<string>();
+  private charRetries = new Map<string, number>();
+
+  async createCharacter(c: NewCharacter): Promise<CharacterRow | null> {
+    try {
+      const row = await this.backend.insertCharacter(c);
+      if (this.state.characters.up(row)) this.charactersVersion++;
+      return row;
+    } catch (e) {
+      this.onError(rejectMessage(e as SendError));
+      return null;
+    }
+  }
+
+  /** Edits one field of a sheet. Shows at once; rapid edits (typing, sliders) collapse into one request per `delay`. */
+  patchCharacter(id: string, path: Path, value: unknown, delay = 0) {
+    this.state.localCharPatch(id, path, value);
+    this.scheduleChar(id, delay);
+  }
+
+  private scheduleChar(id: string, delay: number) {
+    if (this.charInflight.has(id)) return; // sent again when the request in flight returns
+    const t = this.charTimers.get(id);
+    if (t) clearTimeout(t);
+    this.charTimers.set(id, setTimeout(() => void this.flushChar(id), delay));
+  }
+
+  private async flushChar(id: string) {
+    this.charTimers.delete(id);
+    const { ops, sent } = this.state.pendingCharOps(id);
+    if (!ops.length) return;
+    this.charInflight.add(id);
+    let retry = 0;
+    try {
+      const row = await this.backend.patchCharacter(id, ops);
+      this.state.charAck(id, sent, row);
+      this.charRetries.delete(id);
+    } catch (err) {
+      const e = (err ?? {}) as SendError;
+      const n = this.charRetries.get(id) ?? 0;
+      if (isPermanent(e) || n >= 5) {
+        this.state.charReject(id, sent.map((x) => x.key));
+        this.charRetries.delete(id);
+        this.onError(rejectMessage(e));
+      } else {
+        this.charRetries.set(id, n + 1);
+        retry = 500 * 2 ** n;
+      }
+    } finally {
+      this.charInflight.delete(id);
+      if (this.state.pendingCharOps(id).ops.length) this.scheduleChar(id, retry);
+    }
+  }
+
+  /** GM: hand a character to someone, or make it a secret NPC. */
+  async updateCharacter(id: string, fields: Partial<Pick<CharacterRow, 'owner_id' | 'visibility'>>) {
+    await this.run(() => this.backend.updateCharacter(id, fields));
+  }
+
+  async deleteCharacter(id: string) {
+    await this.run(() => this.backend.deleteCharacter(id));
+  }
+
+  // ---- room content and initiative ------------------------------------------------------
+
+  async saveContent(kind: string, key: string, data: Record<string, unknown>) {
+    await this.run(() => this.backend.upsertContent({ kind, key, data }));
+  }
+
+  async deleteContent(id: string) {
+    await this.run(() => this.backend.deleteContent(id));
+  }
+
+  async addInit(e: NewInit): Promise<InitRow | null> {
+    try {
+      const row = await this.backend.insertInit(e);
+      if (this.state.initiative.up(row)) this.initiativeVersion++;
+      return row;
+    } catch (err) {
+      this.onError(rejectMessage(err as SendError));
+      return null;
+    }
+  }
+
+  async updateInit(id: string, fields: Partial<Pick<InitRow, 'name' | 'init' | 'tie' | 'hidden' | 'item_id'>>) {
+    await this.run(() => this.backend.updateInit(id, fields));
+  }
+
+  async deleteInit(id: string) {
+    await this.run(() => this.backend.deleteInit(id));
+  }
+
+  private async run(fn: () => Promise<unknown>) {
+    try {
+      await fn();
+    } catch (e) {
+      this.onError(rejectMessage(e as SendError));
+    }
+  }
+
   dispose() {
+    for (const t of this.charTimers.values()) clearTimeout(t);
     document.removeEventListener('visibilitychange', this.onVisibility);
     window.removeEventListener('online', this.onOnline);
     this.bus.dispose();

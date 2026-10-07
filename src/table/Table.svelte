@@ -2,6 +2,9 @@
   import { onDestroy, onMount } from 'svelte';
   import type { RoomStore } from '../sync/room.svelte';
   import { DiceDirector } from '../dice/director';
+  import { RulesetHost } from '../rulesets/host.svelte';
+  import SheetPanel from '../sheets/SheetPanel.svelte';
+  import InitiativeTracker from '../sheets/InitiativeTracker.svelte';
   import { critText } from '../dice/model';
   import { Stage } from './Stage';
   import { TableActions } from './actions';
@@ -20,6 +23,7 @@
   let stage = $state<Stage | null>(null);
   let actions = $state<TableActions | null>(null);
   let dice = $state<DiceDirector | null>(null);
+  const host = $derived(new RulesetHost(store));
   const unsub: (() => void)[] = [];
 
   const TABS: { id: Tab; label: string }[] = [
@@ -71,6 +75,8 @@
       (files, at) => actions?.routeFiles(files, at));
     stage = s;
     actions = new TableActions(store, s, ui);
+    s.setStatusSource((it) => host.tokenStatus(it));
+    unsub.push(host.onLoad(() => s.renderTokens()));
 
     const d = new DiceDirector(store, stageEl, (text) => ui.showToast(text));
     dice = d;
@@ -165,6 +171,9 @@
       <button class="tool" title="ปรับให้เห็นแมพทั้งหมด (F)" onclick={() => stage?.fitView()}>
         <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>พอดีจอ
       </button>
+      <button class="tool" aria-pressed={ui.initOpen} title="ลำดับการเล่น (Initiative)" onclick={() => (ui.initOpen = !ui.initOpen)}>
+        <svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" /></svg>ลำดับ
+      </button>
       {#if store.isGM}
         <button class="tool" title="พาผู้เล่นทุกคนมาดูตรงที่คุณกำลังดูอยู่ (ซูมและตำแหน่งเดียวกัน)" onclick={() => stage?.syncView()}>
           <svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>พาดู
@@ -231,6 +240,13 @@
       <div class="banner" role="status">การเชื่อมต่อหลุด กำลังเชื่อมต่อใหม่…</div>
     {/if}
 
+    {#if dice}<SheetPanel {store} {ui} {host} {dice} />{/if}
+    {#if ui.templateOpen && store.isGM}
+      {#await import('../rulesets/custom/TemplateEditor.svelte') then { default: TemplateEditor }}
+        <TemplateEditor {store} ctx={host.ctx} onclose={() => (ui.templateOpen = false)} />
+      {/await}
+    {/if}
+    {#if dice && stage}<InitiativeTracker {store} {ui} {host} {dice} {stage} />{/if}
     <button class="showui" onclick={() => { ui.sideHidden = false; ui.toolsHidden = false; }}>แสดงแผงและเครื่องมือ</button>
   </main>
 
@@ -249,11 +265,11 @@
     </div>
     <div class="side-body">
       {#if stage && actions}
-        <SelectionPanel {store} {ui} {stage} {actions} />
+        <SelectionPanel {store} {ui} {stage} {actions} {host} />
         <div class="pane on" role="tabpanel" id="tabpanel" aria-labelledby={`tab-${ui.tab}`}>
           {#if ui.tab === 'map'}<MapPane {store} {ui} {stage} {actions} />
           {:else if ui.tab === 'fog' && store.isGM}<FogPane {store} {ui} {stage} />
-          {:else if ui.tab === 'chars'}<CharsPane {store} {ui} {stage} {actions} />
+          {:else if ui.tab === 'chars'}<CharsPane {store} {ui} {stage} {actions} {host} />
           {:else if ui.tab === 'stickers'}<StickersPane {store} {actions} />
           {:else if ui.tab === 'dice'}{#if dice}<DicePane {store} {dice} />{/if}
           {:else}<PlayersPane {store} {ui} {slug} bind:gmKey />{/if}

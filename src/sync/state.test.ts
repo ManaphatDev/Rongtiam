@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RoomState } from './state';
-import type { ItemRow, Snapshot } from './types';
+import type { CharacterRow, InitRow, ItemRow, Snapshot } from './types';
 
 const room = { id: 'r1', slug: 's', name: 'Room', ruleset_id: 'none', settings: { grid: { on: false, size: 70 }, snap: true }, rev: 0, created_by: null };
 
@@ -9,7 +9,7 @@ const row = (id: string, rev: number, props: ItemRow['props'] = { x: 0, y: 0, si
   created_by: null, updated_by: null, ...extra,
 });
 
-const snap = (seq: number, items: ItemRow[]): Snapshot => ({ seq, room, members: [], items, assets: [], rolls: [] });
+const snap = (seq: number, items: ItemRow[], extra: Partial<Snapshot> = {}): Snapshot => ({ seq, room, members: [], items, assets: [], rolls: [], characters: [], content: [], initiative: [], ...extra });
 
 describe('RoomState snapshot + buffer', () => {
   it('replays only events newer than the snapshot', () => {
@@ -148,5 +148,68 @@ describe('changes made while an add is in flight', () => {
     s.localAdd(added);
     s.localPatch('n', { hidden: true });
     expect(s.get('n')?.hidden).toBe(true);
+  });
+});
+
+describe('characters, content and initiative', () => {
+  const ch = (id: string, rev: number, data: Record<string, unknown> = { name: id }, extra: Partial<CharacterRow> = {}): CharacterRow =>
+    ({ id, room_id: 'r1', owner_id: 'u1', ruleset: 'dnd2024', visibility: 'party', data, rev, ...extra });
+  const init = (id: string, rev: number, init = 10): InitRow =>
+    ({ id, room_id: 'r1', character_id: null, item_id: null, name: id, init, tie: 0, hidden: false, rev });
+
+  it('loads from the snapshot and replays newer buffered events', () => {
+    const s = new RoomState();
+    s.handle({ kind: 'character', scope: 'db', op: 'up', row: ch('c1', 9, { name: 'new' }), rev: 9 });
+    s.handle({ kind: 'init', scope: 'db', op: 'del', id: 'i1', rev: 8 });
+    s.loadSnapshot(snap(5, [], { characters: [ch('c1', 4, { name: 'old' })], initiative: [init('i1', 3)] }));
+    expect(s.character('c1')?.data.name).toBe('new');
+    expect(s.initiative.rows.has('i1')).toBe(false);
+  });
+
+  it('ignores stale rows and never resurrects a deleted one', () => {
+    const s = new RoomState();
+    s.loadSnapshot(snap(1, [], { characters: [ch('c1', 5)] }));
+    s.handle({ kind: 'character', scope: 'db', op: 'up', row: ch('c1', 4, { name: 'stale' }), rev: 4 });
+    expect(s.character('c1')?.data.name).toBe('c1');
+    s.handle({ kind: 'character', scope: 'db', op: 'del', id: 'c1', rev: 6 });
+    s.handle({ kind: 'character', scope: 'db', op: 'up', row: ch('c1', 6), rev: 6 });
+    expect(s.character('c1')).toBeUndefined();
+  });
+
+  it('a character made secret disappears for players, stays for GMs, and comes back when shown again', () => {
+    for (const gm of [false, true]) {
+      const s = new RoomState(() => gm);
+      s.loadSnapshot(snap(1, [], { characters: [ch('c1', 2)] }));
+      s.handle({ kind: 'character', scope: 'db', op: 'del', id: 'c1', rev: 3, reason: 'hidden' });
+      expect(!!s.character('c1')).toBe(gm);
+      s.handle({ kind: 'character', scope: 'db', op: 'up', row: ch('c1', 4), rev: 4 });
+      expect(s.character('c1')?.rev).toBe(4);
+    }
+  });
+
+  it('pending field edits show at once, survive an older echo, and clear on ack', () => {
+    const s = new RoomState();
+    s.loadSnapshot(snap(1, [], { characters: [ch('c1', 2, { name: 'A', hp: { max: 10, cur: 10 } })] }));
+    s.localCharPatch('c1', ['hp', 'cur'], 4);
+    expect(s.character('c1')?.data).toEqual({ name: 'A', hp: { max: 10, cur: 4 } });
+    const { ops, sent } = s.pendingCharOps('c1');
+    expect(ops).toEqual([{ path: ['hp', 'cur'], value: 4 }]);
+    // Someone else renames meanwhile; our edit still shows on top.
+    s.handle({ kind: 'character', scope: 'db', op: 'up', row: ch('c1', 3, { name: 'B', hp: { max: 10, cur: 10 } }), rev: 3 });
+    expect(s.character('c1')?.data).toEqual({ name: 'B', hp: { max: 10, cur: 4 } });
+    // A newer edit to the same field made before the ack stays pending.
+    s.localCharPatch('c1', ['hp', 'cur'], 2);
+    s.charAck('c1', sent, ch('c1', 4, { name: 'B', hp: { max: 10, cur: 4 } }));
+    expect(s.character('c1')?.data.hp).toEqual({ max: 10, cur: 2 });
+    s.charAck('c1', s.pendingCharOps('c1').sent, ch('c1', 5, { name: 'B', hp: { max: 10, cur: 2 } }));
+    expect(s.pendingCharOps('c1').ops).toEqual([]);
+  });
+
+  it('a refused edit rolls back to the confirmed value', () => {
+    const s = new RoomState();
+    s.loadSnapshot(snap(1, [], { characters: [ch('c1', 2, { name: 'A' })] }));
+    s.localCharPatch('c1', ['name'], 'Hacked');
+    s.charReject('c1', s.pendingCharOps('c1').sent.map((x) => x.key));
+    expect(s.character('c1')?.data.name).toBe('A');
   });
 });

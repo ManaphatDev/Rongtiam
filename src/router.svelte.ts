@@ -1,11 +1,12 @@
-// Minimal path router: /, /r/:slug, /local (dev only).
-export type Route = { name: 'home' } | { name: 'room'; slug: string } | { name: 'local' } | { name: 'notfound' };
+// Minimal path router: /, /r/:slug, /credits, /local (dev only).
+export type Route = { name: 'home' } | { name: 'room'; slug: string } | { name: 'local' } | { name: 'credits' } | { name: 'notfound' };
 
 function parse(path: string): Route {
   if (path === '/' || path === '') return { name: 'home' };
   const m = path.match(/^\/r\/([1-9A-HJ-NP-Za-km-z]{10})\/?$/);
   if (m) return { name: 'room', slug: m[1] };
   if (path === '/local' && import.meta.env.DEV) return { name: 'local' };
+  if (path === '/credits') return { name: 'credits' };
   return { name: 'notfound' };
 }
 

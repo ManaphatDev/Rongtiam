@@ -45,9 +45,10 @@ export class DiceDirector {
   }
 
   /** Throws `expr`; resolves with the result once the dice have landed (DiceError for a bad expression). */
-  async roll(expr: string, secret: boolean): Promise<LocalRoll> {
+  /** `title` names what is being rolled (e.g. a save from a sheet); the log shows it before the dice. */
+  async roll(expr: string, secret: boolean, title?: string): Promise<LocalRoll> {
     const terms = parse(expr);
-    const label = format(terms);
+    const label = title ? `${title.slice(0, 80)} · ${format(terms)}` : format(terms);
     const dice = expand(terms).map((d) => ({ id: d.id, kind: d.kind }));
     const id = uuid();
 

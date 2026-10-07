@@ -1,19 +1,31 @@
 <script lang="ts">
   import { COLORS } from '../../lib/profile';
   import { normDeg } from '../../lib/geometry';
+  import type { RulesetHost, TokenCore } from '../../rulesets/host.svelte';
   import type { RoomStore } from '../../sync/room.svelte';
   import type { ItemRow, Props } from '../../sync/types';
   import type { Stage } from '../Stage';
   import type { TableActions } from '../actions';
   import type { Ui } from '../ui.svelte';
 
-  let { store, ui, stage, actions }: { store: RoomStore; ui: Ui; stage: Stage; actions: TableActions } = $props();
+  let { store, ui, stage, actions, host }: { store: RoomStore; ui: Ui; stage: Stage; actions: TableActions; host: RulesetHost } = $props();
+
 
   const it = $derived.by(() => {
     void store.itemsVersion;
     return ui.selectedId ? store.item(ui.selectedId) : undefined;
   });
   const canEdit = $derived(!!it && stage.canEdit(it));
+  const core = $derived((it?.meta?.core ?? {}) as TokenCore);
+  const sheets = $derived(host.characters());
+  const bound = $derived(core.characterId ? sheets.find((c) => c.id === core.characterId) : undefined);
+  const setCore = (fields: Partial<TokenCore>, delay = 0) => it && store.patch(it.id, { meta: { core: fields } }, delay);
+  const sheetName = (id: string) => {
+    const c = sheets.find((x) => x.id === id);
+    const m = c && host.module(c.ruleset);
+    return c && m ? m.nameOf(c.data) : '…';
+  };
+
   const TITLES: Record<string, string> = { char: 'ตัวละครที่เลือก', sticker: 'สติกเกอร์ที่เลือก', map: 'แมพที่เลือก', fog: 'รูปทรงหมอกที่เลือก' };
   let fileInput = $state<HTMLInputElement>();
 
@@ -46,6 +58,26 @@
       {/if}
 
       {#if it.kind === 'char'}
+        <div class="row">
+          <label class="field grow">ชีทของโทเคนนี้<select aria-label="ชีทของโทเคนนี้" value={core.characterId ?? ''}
+            onchange={(e) => setCore({ characterId: e.currentTarget.value || null })}>
+            <option value="">ไม่ผูกกับชีท</option>
+            {#each sheets as c (c.id)}<option value={c.id}>{sheetName(c.id)}</option>{/each}
+          </select></label>
+          {#if bound}<button class="btn small" onclick={() => (ui.sheetOpen = bound.id)}>เปิดชีท</button>{/if}
+        </div>
+        {#if !core.characterId && store.isGM}
+          <div class="row">
+            <label class="field narrow">HP<input type="number" min="0" value={core.hp?.cur ?? ''}
+              onchange={(e) => setCore({ hp: e.currentTarget.value === '' ? null : { cur: Math.max(0, Math.round(+e.currentTarget.value)), max: core.hp?.max ?? Math.max(1, Math.round(+e.currentTarget.value)) } })} /></label>
+            <label class="field narrow">HP สูงสุด<input type="number" min="1" value={core.hp?.max ?? ''}
+              onchange={(e) => setCore({ hp: e.currentTarget.value === '' ? null : { cur: core.hp?.cur ?? Math.round(+e.currentTarget.value), max: Math.max(1, Math.round(+e.currentTarget.value)) } })} /></label>
+            {#if core.hp}
+              <label class="check"><input type="checkbox" checked={!!core.hpPublic} onchange={(e) => setCore({ hpPublic: e.currentTarget.checked })} /> ผู้เล่นเห็นแถบ HP</label>
+            {/if}
+          </div>
+          <p class="hint">HP แบบด่วนสำหรับมอนสเตอร์ที่ไม่มีชีท ผู้เล่นจะไม่เห็นจนกว่าจะเปิด</p>
+        {/if}
         <div class="field">สีขอบ
           <div class="swatches">
             {#each COLORS as c (c)}

@@ -100,5 +100,6 @@
         </div>
       {/if}
     {/if}
+    <p class="hint"><a href="/credits" onclick={(e) => { e.preventDefault(); router.go('/credits'); }}>เครดิตและสัญญาอนุญาต</a></p>
   </div>
 </main>
