@@ -4,6 +4,7 @@
   import { getProfile, getRecent, rememberRoom, setGmKey, setProfile } from '../lib/profile';
   import { router } from '../router.svelte';
   import ProfileFields from '../ui/ProfileFields.svelte';
+  import ThemeToggle from '../ui/ThemeToggle.svelte';
 
   const profile = getProfile();
   let roomName = $state('');
@@ -58,7 +59,7 @@
 
 <main class="page">
   <div class="card">
-    <h1>โรงเตี๊ยม</h1>
+    <div class="page-head"><h1>โรงเตี๊ยม</h1><ThemeToggle /></div>
     <p class="hint">โต๊ะเล่นเกมสวมบทบาทออนไลน์ เล่นพร้อมกันหลายคนแบบเรียลไทม์ แค่ส่งลิงก์ให้เพื่อน ไม่ต้องสมัครสมาชิก</p>
 
     {#if !configured}

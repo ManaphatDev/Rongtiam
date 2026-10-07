@@ -16,6 +16,7 @@
   import StickersPane from './panels/StickersPane.svelte';
   import DicePane from './panels/DicePane.svelte';
   import PlayersPane from './panels/PlayersPane.svelte';
+  import ThemeToggle from '../ui/ThemeToggle.svelte';
 
   let { store, ui, slug = 'local', gmKey = $bindable() }: { store: RoomStore; ui: Ui; slug?: string; gmKey?: string } = $props();
 
@@ -253,6 +254,7 @@
   <aside class="side">
     <div class="brand">
       <h1>{roomName || 'โรงเตี๊ยม'}</h1>
+      <ThemeToggle />
       <small class={`conn ${store.status}`}><i></i>{store.status === 'live' ? `ออนไลน์ ${store.online.length} คน` : store.status === 'offline' ? 'ออฟไลน์' : 'กำลังเชื่อมต่อ'}</small>
     </div>
     <div class="tabs" class:five={tabs.length === 5} class:six={tabs.length === 6} role="tablist" aria-label="เมนู" tabindex="-1" onkeydown={tabKey}>
