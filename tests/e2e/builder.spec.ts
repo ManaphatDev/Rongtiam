@@ -196,3 +196,21 @@ test('keeps the ability-score roll when the panel is closed while the dice are s
   await expect(page.getByText(/^ผลทอย:/)).toBeVisible();
   await expect(wizard(page).getByRole('button', { name: /ทอยค่าพลัง/ })).toBeHidden();
 });
+
+test('a class skill that the background later grants can still be taken back', async ({ page }) => {
+  await openBuilder(page);
+  await chip(page, 'อาชีพ', 'Rogue').click();
+  await pickAll(page, /^สกิลของอาชีพ/, ['มือไว', 'ลอบเร้น', 'กายกรรม', 'หลอกลวง']);
+  await pickAll(page, /^Expertise/, ['กายกรรม', 'หลอกลวง']);
+  await pickAll(page, /^Weapon Mastery/, ['Club', 'Dagger']);
+  await next(page);
+  await chip(page, 'ฉากหลัง', 'Criminal').click(); // grants Sleight of Hand and Stealth too
+  await wizard(page).getByRole('button', { name: /1\. อาชีพ/ }).click();
+
+  const stealth = chip(page, /^สกิลของอาชีพ/, 'ลอบเร้น');
+  await expect(stealth).toHaveAttribute('aria-pressed', 'true');
+  await expect(stealth).toBeEnabled();
+  await stealth.click();
+  await expect(stealth).toHaveAttribute('aria-pressed', 'false');
+  await expect(chip(page, /^สกิลของอาชีพ/, 'การรับรู้')).toBeEnabled(); // the count is no longer full
+});
