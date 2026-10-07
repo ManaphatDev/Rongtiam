@@ -15,13 +15,13 @@
 </script>
 
 {#if feat.key === 'magic-initiate'}
-  <p class="hint">{feat.name}: เลือก cantrip 2 อย่างและเวทเลเวล 1 อย่างหนึ่งจากรายชื่อเวทเดียวกัน</p>
+  <p class="hint">{feat.name}: เลือกแคนทริป 2 อย่าง และเวทเลเวล 1 อีก 1 อย่าง จากรายชื่อเดียวกัน</p>
   {#if !feat.list}
     <Pick legend="รายชื่อเวทของ Magic Initiate" options={FEAT_LISTS.map((l) => ({ id: l, label: listName(l) }))} value={picks.list}
       onpick={(id) => (picks = { list: id as FeatList, cantrips: [], spell: null, skills: [] })} />
   {/if}
   {#if list}
-    <PickMany legend="Magic Initiate: cantrip" options={listSpells(list, 0, srd).map((s) => ({ id: s.key, label: s.name }))}
+    <PickMany legend="Magic Initiate: แคนทริป" options={listSpells(list, 0, srd).map((s) => ({ id: s.key, label: s.name }))}
       selected={picks.cantrips} max={2} onchange={(v) => (picks.cantrips = v)} />
     <Pick legend="Magic Initiate: เวทเลเวล 1" options={listSpells(list, 1, srd).map((s) => ({ id: s.key, label: s.name }))}
       value={picks.spell} onpick={(id) => (picks.spell = id)} />

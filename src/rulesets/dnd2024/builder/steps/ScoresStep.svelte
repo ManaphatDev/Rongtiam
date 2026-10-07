@@ -11,7 +11,7 @@
   const METHODS = [
     { id: 'array', label: 'ชุดมาตรฐาน', hint: '15, 14, 13, 12, 10, 8' },
     { id: 'pointbuy', label: 'Point Buy', hint: `${POINT_BUY_BUDGET} แต้ม` },
-    { id: 'roll', label: 'ทอยเต๋า', hint: '4d6 ทิ้งต่ำสุด ×6' },
+    { id: 'roll', label: 'ทอยเต๋า', hint: '4d6 ทิ้งลูกต่ำสุด ×6' },
   ];
   const method = $derived(draft.scores.method);
   const pool = $derived(poolOf(method, draft.rolled));
@@ -49,9 +49,9 @@
 
 {#if method === 'roll' && !draft.rolled}
   <button class="btn primary" type="button" disabled={rolling} onclick={onroll}>
-    {rolling ? 'กำลังทอย…' : 'ทอยค่าพลัง (4d6 ทิ้งต่ำสุด ×6)'}
+    {rolling ? 'กำลังทอย…' : 'ทอยค่าพลัง (4d6 ทิ้งลูกต่ำสุด ×6)'}
   </button>
-  <p class="hint">ทอยได้ครั้งเดียว ผลจะถูกเก็บไว้ในร่าง</p>
+  <p class="hint">ทอยได้ครั้งเดียว ผลทอยจะบันทึกไว้ในร่างทันที</p>
 {:else if method === 'pointbuy'}
   <p class="hint" aria-live="polite">ใช้ไป {spent} จาก {POINT_BUY_BUDGET} แต้ม</p>
   {#each ABILITIES as a (a)}

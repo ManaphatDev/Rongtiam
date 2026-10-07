@@ -40,7 +40,7 @@
 
 {#if bg}
   <p class="hint">Feat: {bg.feat} · สกิล: {bg.skills.map((s) => SKILLS[s as Skill].th).join(', ')} · เครื่องมือ: {bg.tool}</p>
-  <Pick legend="วิธีเพิ่มค่าพลังจากฉากหลัง" options={[{ id: '2/1', label: '+2 และ +1' }, { id: '1/1/1', label: '+1 สามค่า' }]}
+  <Pick legend="วิธีเพิ่มค่าพลังจากฉากหลัง" options={[{ id: '2/1', label: '+2 หนึ่งค่า และ +1 อีกค่า' }, { id: '1/1/1', label: '+1 ทั้งสามค่า' }]}
     value={draft.bgAsi.mode} onpick={setMode} />
   {#if draft.bgAsi.mode === '2/1'}
     <Pick legend="ค่าพลัง +2" options={abilityOptions(plus('plus1'))} value={plus('plus2')} onpick={(a) => setPlus('plus2', a as Ability)} />

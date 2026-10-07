@@ -30,7 +30,7 @@ function featPickMessages(feat: FeatRef | null, picks: FeatPicks, srd: Srd, take
     const list = feat.list ?? picks.list;
     if (!list) return ['เลือกรายชื่อเวทของ Magic Initiate (Cleric, Druid หรือ Wizard)'];
     const out: string[] = [];
-    if (!exactly(picks.cantrips, 2, listSpells(list, 0, srd).map((s) => s.key))) out.push('Magic Initiate: เลือก cantrip 2 อย่าง');
+    if (!exactly(picks.cantrips, 2, listSpells(list, 0, srd).map((s) => s.key))) out.push('Magic Initiate: เลือกแคนทริป 2 อย่าง');
     if (!picks.spell || !listSpells(list, 1, srd).some((s) => s.key === picks.spell)) out.push('Magic Initiate: เลือกเวทเลเวล 1 หนึ่งอย่าง');
     return out;
   }
@@ -49,7 +49,7 @@ function classMessages(d: Draft, srd: Srd): string[] {
   if (!exactly(d.classSkills, cls.skillChoice.count, cls.skillChoice.from)) out.push(`เลือกสกิลของอาชีพให้ครบ ${cls.skillChoice.count} อย่าง`);
   else if (d.classSkills.some((s) => src.bg.includes(s))) out.push('สกิลของอาชีพซ้ำกับสกิลของฉากหลัง ให้เลือกใหม่');
   if (cls.tools.choose && !namesOk(d.classTools, cls.tools.choose.count)) {
-    out.push(`ระบุเครื่องมือ (${cls.tools.choose.label}) ให้ครบ ${cls.tools.choose.count} อย่าง และห้ามซ้ำกัน`);
+    out.push(`ใส่ชื่อเครื่องมือ (${cls.tools.choose.label}) ให้ครบ ${cls.tools.choose.count} อย่าง ไม่ซ้ำกัน`);
   }
   for (const p of level1Points(d)) {
     if (p.kind === 'fightingStyle' && !fightingStyleFeats(srd).some((f) => f.key === d.fightingStyle)) out.push('เลือก Fighting Style');
@@ -78,7 +78,7 @@ function backgroundMessages(d: Draft, srd: Srd): string[] {
     }
   }
   if (bg.tools.choose && !namesOk(d.bgTools, bg.tools.choose.count)) {
-    out.push(`ระบุเครื่องมือ (${bg.tools.choose.label}) ให้ครบ ${bg.tools.choose.count} อย่าง และห้ามซ้ำกัน`);
+    out.push(`ใส่ชื่อเครื่องมือ (${bg.tools.choose.label}) ให้ครบ ${bg.tools.choose.count} อย่าง ไม่ซ้ำกัน`);
   }
   out.push(...featPickMessages(backgroundFeat(d, srd), d.bgFeat, srd, []));
   return out;
@@ -99,7 +99,7 @@ function speciesMessages(d: Draft, srd: Srd): string[] {
     if (c.kind === 'originFeat') {
       const feat = speciesFeatRef(d, srd);
       if (!feat || !originFeats(srd).some((f) => f.key === feat.key)) out.push('เลือก Origin feat');
-      else if (feat.key === backgroundFeat(d, srd)?.key) out.push('Origin feat ซ้ำกับของฉากหลัง');
+      else if (feat.key === backgroundFeat(d, srd)?.key) out.push('เลือก Origin feat อื่น ฉากหลังให้ feat นี้แล้ว');
       else out.push(...featPickMessages(feat, d.speciesFeatPicks, srd, [...src.bg, ...src.cls, ...src.sp]));
     }
   }
@@ -108,12 +108,12 @@ function speciesMessages(d: Draft, srd: Srd): string[] {
 
 function scoreMessages(d: Draft, srd: Srd): string[] {
   if (!baseScores(d.scores, d.rolled)) {
-    if (d.scores.method === 'pointbuy') return [`Point Buy ใช้ได้ไม่เกิน ${POINT_BUY_BUDGET} แต้ม และแต่ละค่าอยู่ระหว่าง 8 ถึง 15`];
+    if (d.scores.method === 'pointbuy') return [`ใช้แต้ม Point Buy ไม่เกิน ${POINT_BUY_BUDGET} แต้ม และให้แต่ละค่าอยู่ระหว่าง 8–15`];
     if (d.scores.method === 'roll' && !d.rolled) return ['ทอยค่าพลังก่อน'];
-    return ['จัดค่าเข้าให้ครบทั้งหกค่าพลัง โดยใช้แต่ละค่าครั้งเดียว'];
+    return ['ใส่ตัวเลขให้ครบทั้ง 6 ค่าพลัง ใช้ตัวเลขละครั้ง'];
   }
   const final = finalAbilities(d, srd);
-  return final && Object.values(final).some((v) => v > 20) ? ['ค่าพลังหลังบวกจากฉากหลังเกิน 20'] : [];
+  return final && Object.values(final).some((v) => v > 20) ? ['ค่าพลังเกิน 20 หลังบวกโบนัสฉากหลัง ให้ย้ายโบนัสไปค่าอื่นหรือลดค่าเริ่มต้น'] : [];
 }
 
 function equipmentMessages(d: Draft, srd: Srd): string[] {
@@ -128,7 +128,7 @@ function spellMessages(d: Draft, srd: Srd): string[] {
   const out: string[] = [];
   const cantrips = cantripTarget(d, srd);
   const spells = spellTarget(d, srd);
-  if (!exactly(d.cantrips, cantrips, classSpells(d, srd, 0).map((s) => s.key))) out.push(`เลือก cantrip ให้ครบ ${cantrips} อย่าง`);
+  if (!exactly(d.cantrips, cantrips, classSpells(d, srd, 0).map((s) => s.key))) out.push(`เลือกแคนทริปให้ครบ ${cantrips} อย่าง`);
   if (!exactly(d.spells, spells, classSpells(d, srd, 1).map((s) => s.key))) out.push(`เลือกเวทเลเวล 1 ให้ครบ ${spells} อย่าง`);
   return out;
 }

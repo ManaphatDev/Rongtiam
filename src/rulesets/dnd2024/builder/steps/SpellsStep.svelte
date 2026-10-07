@@ -14,7 +14,7 @@
 
 {#if cls}
   {#if cantrips > 0}
-    <PickMany legend="Cantrip" options={classSpells(draft, srd, 0).map((s) => ({ id: s.key, label: s.name, hint: s.school }))}
+    <PickMany legend="แคนทริป" options={classSpells(draft, srd, 0).map((s) => ({ id: s.key, label: s.name, hint: s.school }))}
       selected={draft.cantrips} max={cantrips} onchange={(v) => (draft.cantrips = v)} />
   {/if}
   {#if spells > 0}

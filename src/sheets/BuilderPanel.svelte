@@ -67,7 +67,7 @@
         {#if failed}
           <p class="hint err">โหลดตัวช่วยสร้างไม่สำเร็จ ลองรีเฟรชหน้า</p>
         {:else}
-          <div class="spinner" role="status" aria-label="กำลังโหลด"></div>
+          <div class="spinner" role="status" aria-label="กำลังโหลด…"></div>
         {/if}
       </div>
     </section>
