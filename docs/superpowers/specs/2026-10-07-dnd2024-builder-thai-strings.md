@@ -115,6 +115,7 @@
 | โหลดตัวช่วยสร้างไม่สำเร็จ ลองรีเฟรชหน้า | BuilderPanel.svelte |
 | อาชีพ | Builder.svelte |
 | # อาชีพ: … (เลเวล 1) | build.ts |
+| … อาชีพให้ภาษา: … … | LanguagesStep.svelte |
 | อุปกรณ์ | Builder.svelte |
 | อุปกรณ์เริ่มต้นของฉากหลัง | EquipmentStep.svelte |
 | อุปกรณ์เริ่มต้นของอาชีพ | EquipmentStep.svelte |
