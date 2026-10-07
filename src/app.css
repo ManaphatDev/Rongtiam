@@ -377,6 +377,27 @@ img.broken{visibility:hidden}
 .chip{min-height:34px;padding:0 10px;border-radius:999px;border:1px solid var(--glass-edge);background:var(--field);cursor:pointer;font-size:13px}
 .chip[aria-pressed="true"]{background:var(--teal-solid);color:var(--teal-ink);border-color:transparent;font-weight:600}
 .chip:disabled{cursor:default}
+/* ---- character builder ---- */
+.builder-steps{display:flex;gap:6px;overflow-x:auto;padding:8px 16px;margin:0;list-style:none;border-bottom:1px solid var(--glass-edge)}
+.builder-steps li{flex:0 0 auto}
+.builder-steps button{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--glass-edge);background:var(--field);color:var(--ink);cursor:pointer;font-size:13px;white-space:nowrap}
+.builder-steps li[aria-current="step"] button{background:var(--teal-solid);color:var(--teal-ink);border-color:transparent;font-weight:600}
+.builder-steps button:disabled{opacity:.5;cursor:default}
+.builder h3:focus{outline:none}
+.builder .chip{min-height:44px;padding:0 14px}
+.pick-set{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;min-width:0}
+.pick-set legend{font-weight:600;padding:0;margin-bottom:4px}
+.pick-grid{display:flex;flex-wrap:wrap;gap:8px}
+.pick-grid .chip{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;text-align:left;height:auto;padding-block:6px}
+.pick-grid .chip small{font-size:11px;font-weight:400;opacity:.8;overflow-wrap:anywhere}
+.builder-issues{margin:0;padding-inline-start:20px;color:var(--ink-soft);font-size:13px}
+.point-row{display:flex;align-items:center;gap:8px}
+.point-row .nm{flex:1}
+.point-row b{min-width:2ch;text-align:center;font:600 18px/1 'Kanit',sans-serif}
+.point-row .btn{min-width:44px;min-height:44px}
+.plain-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.plain-list li{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.plain-list .nm{flex:1;min-width:0;overflow-wrap:anywhere}
 .custom-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
 .field.computed{justify-content:center;padding:8px 10px;border-radius:12px;border:1px dashed var(--glass-edge)}
 .field.computed b{font:600 20px 'Kanit',sans-serif;color:var(--ink);font-variant-numeric:tabular-nums}
