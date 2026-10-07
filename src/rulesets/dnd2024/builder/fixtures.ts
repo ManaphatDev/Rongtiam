@@ -5,7 +5,7 @@ import { STANDARD_LANGUAGES } from '../overlay';
 import { pointBuyStart } from './abilities';
 import { emptyDraft, emptyPicks, type Draft, type FeatPicks } from './draft';
 import {
-  backgroundFeat, cantripTarget, classOf, classSpells, fightingStyleFeats, level1Points, listSpells,
+  backgroundFeat, cantripTarget, classOf, classSpells, fightingStyleFeats, languagePicks, level1Points, listSpells,
   originFeats, proficientSkills, speciesRulesOf, spellTarget, weaponPool, type FeatList,
 } from './helpers';
 
@@ -60,7 +60,7 @@ export function autoDraft(srd: Srd, classKey: string, backgroundKey: string, spe
   if (cls.tools.choose) d.classTools = Array.from({ length: cls.tools.choose.count }, (_, i) => `Class tool ${i + 1}`);
   if (bg.tools.choose) d.bgTools = Array.from({ length: bg.tools.choose.count }, (_, i) => `Background tool ${i + 1}`);
   d.bgAsi = { mode: '1/1/1' };
-  d.languages = STANDARD_LANGUAGES.slice(0, 2);
+  d.languages = STANDARD_LANGUAGES.slice(0, languagePicks(d));
   d.scores = { method: 'array', assign: { str: 0, dex: 1, con: 2, int: 3, wis: 4, cha: 5 }, base: pointBuyStart() };
   d.classEquip = 'A';
   d.bgEquip = 'A';

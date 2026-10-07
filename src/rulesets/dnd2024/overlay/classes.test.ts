@@ -21,6 +21,17 @@ describe('class overlay', () => {
     }
   });
 
+  it('a language a class grants comes from a level-1 feature that says so', () => {
+    const grants = CLASS_RULES.filter((r) => r.languages?.length || r.extraLanguages);
+    expect(grants.map((r) => r.key)).toEqual(['druid', 'rogue']);
+    for (const r of grants) {
+      const cls = srd.classes.find((c) => c.key === r.key)!;
+      const feature = cls.features.find((f) => f.levels.includes(1) && f.desc.includes(r.languages![0]));
+      expect(feature, `${r.key}: no level-1 feature mentions ${r.languages![0]}`).toBeTruthy();
+    }
+    expect(CLASS_RULES.find((r) => r.key === 'rogue')!.extraLanguages).toBe(1);
+  });
+
   it('counts agree with the class table where the table has a column for them', () => {
     for (const r of CLASS_RULES) {
       const cls = srd.classes.find((c) => c.key === r.key)!;

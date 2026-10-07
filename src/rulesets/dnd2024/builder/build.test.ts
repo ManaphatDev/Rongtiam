@@ -46,12 +46,20 @@ function rogue(): Draft {
     name: 'Vex', classKey: 'rogue', background: 'criminal', species: 'human',
     classSkills: ['acrobatics', 'athletics', 'deception', 'insight'], expertise: ['stealth', 'sleight-of-hand'],
     masteries: ['dagger', 'shortsword'], bgAsi: { mode: '1/1/1' }, speciesSkill: 'perception', speciesFeat: 'savage-attacker',
-    languages: ['Giant', 'Goblin'],
+    languages: ['Giant', 'Goblin', 'Orc'],
     scores: { method: 'array', assign: { dex: 0, con: 1, int: 2, wis: 3, cha: 4, str: 5 }, base: pointBuyStart() },
     classEquip: 'A', bgEquip: 'A',
   });
   return d;
 }
+
+describe('build: languages the class grants', () => {
+  it('a Rogue knows Thieves Cant, a Druid Druidic', () => {
+    expect(build(autoDraft(srd, 'rogue', 'criminal', 'human'), srd).languages).toEqual(['Common', "Thieves' Cant", 'Common Sign Language', 'Draconic', 'Dwarvish']);
+    expect(build(autoDraft(srd, 'druid', 'acolyte', 'human'), srd).languages).toEqual(['Common', 'Druidic', 'Common Sign Language', 'Draconic']);
+    expect(build(autoDraft(srd, 'fighter', 'soldier', 'human'), srd).languages).toEqual(['Common', 'Common Sign Language', 'Draconic']);
+  });
+});
 
 describe('build: golden characters', () => {
   it('Fighter with chain mail', () => {

@@ -33,7 +33,7 @@ export const CLASS_RULES: ClassRules[] = [
       options: [{ id: 'magician', name: 'Magician', extraCantrips: 1 }, { id: 'warden', name: 'Warden' }],
     },
     ...common('Druid Subclass'),
-  ]),
+  ], { languages: ['Druidic'] }),
   rules('fighter', [
     { level: 1, feature: 'Fighting Style', kind: 'fightingStyle' },
     { level: 1, feature: 'Weapon Mastery', kind: 'masteries', filter: 'any', count: 3 },
@@ -57,7 +57,7 @@ export const CLASS_RULES: ClassRules[] = [
     { level: 1, feature: 'Weapon Mastery', kind: 'masteries', filter: 'proficient', count: 2 },
     { level: 6, feature: 'Expertise', kind: 'expertise', count: 2 },
     ...common('Rogue Subclass', [4, 8, 10, 12, 16]),
-  ]),
+  ], { languages: ["Thieves' Cant"], extraLanguages: 1 }),
   rules('sorcerer', [
     { level: 2, feature: 'Metamagic', kind: 'metamagic', count: 2 },
     { level: 10, feature: 'Metamagic', kind: 'metamagic', count: 2 },

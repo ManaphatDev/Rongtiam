@@ -3,7 +3,7 @@
 import type { Srd, SrdWeapon } from '../data/schema';
 import { martialProficient } from '../derive';
 import type { Ability } from '../i18n/th';
-import { CLASS_RULES, SPECIES_RULES, type ChoicePoint, type MasteryFilter } from '../overlay';
+import { CLASS_RULES, EXTRA_LANGUAGES, SPECIES_RULES, type ChoicePoint, type MasteryFilter } from '../overlay';
 import { baseScores } from './abilities';
 import type { Draft } from './draft';
 
@@ -39,6 +39,10 @@ export const fightingStyleFeats = (srd: Srd) => srd.feats.filter((f) => f.type =
 
 /** The class's level-1 decisions. */
 export const level1Points = (d: Draft): ChoicePoint[] => classRulesOf(d)?.choices.filter((p) => p.level === 1) ?? [];
+
+/** Languages the class gives outright, and how many the player picks (two, plus one for a Rogue). */
+export const classLanguages = (d: Draft): string[] => classRulesOf(d)?.languages ?? [];
+export const languagePicks = (d: Draft): number => EXTRA_LANGUAGES + (classRulesOf(d)?.extraLanguages ?? 0);
 
 export interface SkillSources { bg: string[]; cls: string[]; sp: string[]; feat: string[] }
 /**

@@ -2,12 +2,12 @@
 // step order. The wizard enables "next" when the current step has none; build() refuses a draft that has any.
 import type { Srd } from '../data/schema';
 import { SKILLS } from '../i18n/th';
-import { EXTRA_LANGUAGES, STANDARD_LANGUAGES } from '../overlay';
+import { STANDARD_LANGUAGES } from '../overlay';
 import { POINT_BUY_BUDGET, baseScores } from './abilities';
 import type { Draft, FeatPicks } from './draft';
 import {
   backgroundFeat, backgroundOf, cantripTarget, classOf, classSpells, fightingStyleFeats, finalAbilities, level1Points,
-  listSpells, needsSpellStep, originFeats, proficientSkills, skillSources, speciesFeatRef, speciesOf, speciesRulesOf,
+  languagePicks, listSpells, needsSpellStep, originFeats, proficientSkills, skillSources, speciesFeatRef, speciesOf, speciesRulesOf,
   spellTarget, weaponPool, type FeatRef,
 } from './helpers';
 
@@ -139,7 +139,7 @@ export function validate(d: Draft, srd: Srd): Issue[] {
     ...at('class', classMessages(d, srd)),
     ...at('background', backgroundMessages(d, srd)),
     ...at('species', speciesMessages(d, srd)),
-    ...at('languages', exactly(d.languages, EXTRA_LANGUAGES, [...STANDARD_LANGUAGES]) ? [] : [`เลือกภาษาเพิ่ม ${EXTRA_LANGUAGES} ภาษา`]),
+    ...at('languages', exactly(d.languages, languagePicks(d), [...STANDARD_LANGUAGES]) ? [] : [`เลือกภาษาเพิ่ม ${languagePicks(d)} ภาษา`]),
     ...at('scores', scoreMessages(d, srd)),
     ...at('equipment', equipmentMessages(d, srd)),
     ...at('spells', spellMessages(d, srd)),

@@ -142,6 +142,14 @@ describe('languages, scores, equipment, details', () => {
     expect(steps(d)).toEqual(['languages']);
   });
 
+  it('languages: a Rogue picks one more than the rest, since the Thieves Cant feature comes with a language of choice', () => {
+    const d = autoDraft(srd, 'rogue', 'criminal', 'human');
+    expect(d.languages).toHaveLength(3);
+    expect(validate(d, srd)).toEqual([]);
+    d.languages = d.languages.slice(0, 2);
+    expect(steps(d)).toEqual(['languages']);
+  });
+
   it('scores: incomplete array, over-budget point buy, an unrolled roll', () => {
     const d = fighter();
     d.scores = { method: 'array', assign: { str: 0 }, base: pointBuyStart() };

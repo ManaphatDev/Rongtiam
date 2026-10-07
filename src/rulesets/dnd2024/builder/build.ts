@@ -11,7 +11,7 @@ import type { Draft, FeatPicks } from './draft';
 import { emptyPicks } from './draft';
 import { kitOf } from './equipment';
 import {
-  backgroundFeat, backgroundOf, classOf, finalAbilities, level1Points, needsSpellStep, proficientSkills, speciesOf,
+  backgroundFeat, backgroundOf, classLanguages, classOf, finalAbilities, level1Points, needsSpellStep, proficientSkills, speciesOf,
   speciesRulesOf, type FeatList,
 } from './helpers';
 import { validate, type Issue } from './validate';
@@ -100,7 +100,7 @@ export function build(d: Draft, srd: Srd): D2024 {
     money: { gp: kit.gp },
     spells: { known: needsSpellStep(d, srd) ? [...d.cantrips, ...d.spells] : [] },
     feats,
-    languages: [COMMON_LANGUAGE, ...d.languages],
+    languages: [COMMON_LANGUAGE, ...classLanguages(d), ...d.languages],
     tools: uniqueNames([...cls.tools.fixed, ...d.classTools, ...bg.tools.fixed, ...d.bgTools]),
     features: featuresText(d, srd),
     notes: d.notes,

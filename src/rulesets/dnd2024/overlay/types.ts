@@ -24,6 +24,9 @@ export interface ClassRules {
   choices: ChoicePoint[];
   /** Spells in a level-1 spellbook (Wizard). */
   spellbook?: number;
+  /** Languages a level-1 feature gives outright (Druidic, Thieves' Cant), and how many more the player picks on top. */
+  languages?: string[];
+  extraLanguages?: number;
 }
 
 export type SpeciesChoice =
