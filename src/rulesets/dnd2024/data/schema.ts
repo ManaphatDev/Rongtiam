@@ -10,6 +10,25 @@ const FeatureZ = z.object({
   desc: z.string(),
 });
 
+export const EquipmentItemZ = z.object({
+  name: z.string(),
+  qty: z.number().int().positive(),
+  kind: z.enum(['weapon', 'armor', 'shield', 'gear']),
+  /** SRD weapon/armor key, for the first three kinds. */
+  key: z.string().optional(),
+});
+/** One of the "Choose A or B" sets of starting equipment. The last set of a class/background is gold only. */
+export const EquipmentOptionZ = z.object({
+  id: z.enum(['A', 'B', 'C']),
+  items: z.array(EquipmentItemZ),
+  gp: z.number().int().min(0),
+});
+export const ToolGrantZ = z.object({
+  fixed: z.array(z.string()),
+  /** "Choose 3 Musical Instruments": the player names them. */
+  choose: z.object({ count: z.number().int().positive(), label: z.string() }).nullable(),
+});
+
 export const ClassZ = z.object({
   key: z.string(),
   name: z.string(),
@@ -20,6 +39,14 @@ export const ClassZ = z.object({
   /** Class table columns (e.g. "Cantrips", "1st", "Sneak Attack"): one value per level 1–20, '' where blank. */
   table: z.record(z.string(), z.array(z.string()).length(20)),
   features: z.array(FeatureZ),
+  /** Core Traits table: "Choose 2: Athletics, ..." (`from` are skill keys). */
+  skillChoice: z.object({ count: z.number().int().positive(), from: z.array(z.string()).min(1) }),
+  /** Weapon and armor training as the SRD words it. */
+  training: z.object({ weapons: z.string(), armor: z.string() }),
+  tools: ToolGrantZ,
+  equipmentOptions: z.array(EquipmentOptionZ).min(2),
+  /** Warlock only: every invocation with its prerequisite text (null = none, so it can be taken at level 1). */
+  invocations: z.array(z.object({ name: z.string(), prerequisite: z.string().nullable() })),
   subclasses: z.array(z.object({ key: z.string(), name: z.string(), desc: z.string(), features: z.array(FeatureZ) })),
 });
 
@@ -39,6 +66,8 @@ export const BackgroundZ = z.object({
   skills: z.array(z.string()).length(2),
   tool: z.string(),
   equipment: z.string(),
+  tools: ToolGrantZ,
+  equipmentOptions: z.array(EquipmentOptionZ).min(2),
 });
 
 export const FeatZ = z.object({
@@ -112,3 +141,6 @@ export type SrdBackground = z.infer<typeof BackgroundZ>;
 export type SrdSpell = z.infer<typeof SpellZ>;
 export type SrdWeapon = z.infer<typeof WeaponZ>;
 export type SrdArmor = z.infer<typeof ArmorZ>;
+export type EquipmentItem = z.infer<typeof EquipmentItemZ>;
+export type EquipmentOption = z.infer<typeof EquipmentOptionZ>;
+export type ToolGrant = z.infer<typeof ToolGrantZ>;
