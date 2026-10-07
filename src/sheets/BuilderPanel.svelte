@@ -38,9 +38,9 @@
     if (ui.sheetOpen) ui.builderOpen = false;
   });
 
-  async function rollDice(label: string, expr: string): Promise<RollResult> {
+  async function rollDice(label: string, expr: string, onDecided?: (result: RollResult) => void): Promise<RollResult> {
     try {
-      return (await dice.roll(expr, false, label)).result;
+      return (await dice.roll(expr, false, label, onDecided)).result;
     } catch (e) {
       ui.showToast('ทอยไม่สำเร็จ', undefined, (e as Error).message);
       throw e;

@@ -71,10 +71,19 @@
     const id = roomId;
     const startedOn = step;
     const target = draft;
+    const apply = (d: Draft, rolled: number[]) => {
+      d.rolled = rolled;
+      d.scores = { method: 'roll', assign: {}, base: pointBuyStart() };
+    };
     try {
-      const rolled = scoresFromRoll(await rollDice('ค่าพลัง', ROLL_EXPR));
-      target.rolled = rolled;
-      target.scores = { method: 'roll', assign: {}, base: pointBuyStart() };
+      const final = await rollDice('ค่าพลัง', ROLL_EXPR, (result) => {
+        // The result is final before the dice land: save it now (the screen only shows it after they land), so a
+        // reload or closed tab mid-roll cannot buy a second roll.
+        const kept = $state.snapshot(target) as Draft;
+        apply(kept, scoresFromRoll(result));
+        saveDraft(id, { step: startedOn, draft: kept });
+      });
+      apply(target, scoresFromRoll(final));
       saveDraft(id, { step: startedOn, draft: $state.snapshot(target) as Draft });
     } catch {
       // the table already told the player the roll failed

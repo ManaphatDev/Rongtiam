@@ -46,8 +46,9 @@ export interface BuilderProps {
   ctx: RulesetContext;
   /** Keys the builder's saved draft (one per room). */
   roomId: string;
-  /** Rolls dice on the table's 3D dice; resolves with the result once they have landed. */
-  rollDice: (label: string, expr: string) => Promise<RollResult>;
+  /** Rolls dice on the table's 3D dice; resolves with the result once they have landed. `onDecided` fires earlier,
+   *  as soon as the result is final, so a caller can keep it even if the page goes away mid-roll. */
+  rollDice: (label: string, expr: string, onDecided?: (result: RollResult) => void) => Promise<RollResult>;
   /** Creates the character. True when it was made: the builder then forgets its draft and the panel closes. */
   onDone: (data: Record<string, unknown>) => Promise<boolean>;
   onClose: () => void;

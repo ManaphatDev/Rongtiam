@@ -214,3 +214,16 @@ test('a class skill that the background later grants can still be taken back', a
   await expect(stealth).toHaveAttribute('aria-pressed', 'false');
   await expect(chip(page, /^สกิลของอาชีพ/, 'การรับรู้')).toBeEnabled(); // the count is no longer full
 });
+
+test('saves the ability-score roll as soon as it is decided, before the dice have landed', async ({ page }) => {
+  await openBuilder(page);
+  await fighterToScores(page);
+
+  await chip(page, 'วิธีกำหนดค่าพลัง', 'ทอยเต๋า').click();
+  await wizard(page).getByRole('button', { name: /ทอยค่าพลัง/ }).click();
+
+  // A reload or a closed tab while the dice are still tumbling must not buy a second roll.
+  const rolled = () => page.evaluate(() => JSON.parse(localStorage.getItem('rongtiam:builder:local')!).draft.rolled);
+  await expect.poll(rolled, { timeout: 45_000 }).not.toBeNull();
+  await expect(wizard(page).getByRole('button', { name: 'กำลังทอย…' })).toBeVisible();
+});
