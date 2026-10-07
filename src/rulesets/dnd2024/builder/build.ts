@@ -101,7 +101,8 @@ export function build(d: Draft, srd: Srd): D2024 {
     spells: { known: needsSpellStep(d, srd) ? [...d.cantrips, ...d.spells] : [] },
     feats,
     languages: [COMMON_LANGUAGE, ...classLanguages(d), ...d.languages],
-    tools: uniqueNames([...cls.tools.fixed, ...d.classTools, ...bg.tools.fixed, ...d.bgTools]),
+    // Picks only count while the class or background still asks for them (a draft keeps picks of a class switched away from).
+    tools: uniqueNames([...cls.tools.fixed, ...(cls.tools.choose ? d.classTools : []), ...bg.tools.fixed, ...(bg.tools.choose ? d.bgTools : [])]),
     features: featuresText(d, srd),
     notes: d.notes,
     choices: { build: { v: 1, draft: JSON.parse(JSON.stringify(d)) } },

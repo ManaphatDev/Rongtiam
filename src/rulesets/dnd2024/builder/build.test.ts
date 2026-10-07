@@ -73,6 +73,16 @@ describe('build: a feat taken twice', () => {
   });
 });
 
+describe('build: picks left over from an earlier choice', () => {
+  it('tools picked for a class or background that no longer asks for them are not kept', () => {
+    const d = autoDraft(srd, 'fighter', 'acolyte', 'human');
+    const before = build(d, srd).tools;
+    d.classTools = ['Lute']; // the Fighter has no tool choice (the draft was a Bard before)
+    d.bgTools = ['Flute']; // neither has the Acolyte
+    expect(build(d, srd).tools).toEqual(before);
+  });
+});
+
 describe('build: golden characters', () => {
   it('Fighter with chain mail', () => {
     const c = build(fighter(), srd);
