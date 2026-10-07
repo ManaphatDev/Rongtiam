@@ -74,7 +74,8 @@
     const target = draft;
     const apply = (d: Draft, rolled: number[]) => {
       d.rolled = rolled;
-      d.scores = { method: 'roll', assign: {}, base: pointBuyStart() };
+      // Only the roll method has an assignment to reset: a player who switched method while the dice rolled keeps theirs.
+      if (d.scores.method === 'roll') d.scores = { method: 'roll', assign: {}, base: pointBuyStart() };
     };
     // A result without six totals is not a roll of ROLL_EXPR: keep nothing, so the player can throw again.
     const whole = (rolled: number[]) => rolled.length === 6;
