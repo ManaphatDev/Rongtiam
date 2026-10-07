@@ -45,8 +45,9 @@ export class DiceDirector {
   }
 
   /** Throws `expr`; resolves with the result once the dice have landed (DiceError for a bad expression). */
-  /** `title` names what is being rolled (e.g. a save from a sheet); the log shows it before the dice. */
-  async roll(expr: string, secret: boolean, title?: string): Promise<LocalRoll> {
+  /** `title` names what is being rolled (e.g. a save from a sheet); the log shows it before the dice.
+   *  `onDecided` gets the result as soon as its row is written, while the dice are still tumbling. */
+  async roll(expr: string, secret: boolean, title?: string, onDecided?: (result: RollResult) => void): Promise<LocalRoll> {
     const terms = parse(expr);
     const label = title ? `${title.slice(0, 80)} · ${format(terms)}` : format(terms);
     const dice = expand(terms).map((d) => ({ id: d.id, kind: d.kind }));
@@ -72,6 +73,7 @@ export class DiceDirector {
 
     const replay = sim ? this.replay(id, dice.map((d) => d.kind), sim.frames, color, tags) : Promise.resolve();
     await this.store.roll({ id, label, spec: { expr: label }, result, visibility });
+    onDecided?.(result);
     await replay;
     return { label, result };
   }

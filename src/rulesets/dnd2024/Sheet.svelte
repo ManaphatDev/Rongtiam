@@ -26,9 +26,26 @@
   let addWeapon = $state('');
   let addSpell = $state('');
   let openSpell = $state<string | null>(null);
+  let addFeat = $state('');
+  let addLang = $state('');
+  let addTool = $state('');
   const classSpells = $derived(srd.spells.filter((s) => s.classes.includes(c.classKey)).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name)));
   const knownSpells = $derived(c.spells.known.map((k) => srd.spells.find((s) => s.key === k)).filter((s) => !!s).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name)));
 </script>
+
+{#snippet tags(label: string, path: 'feats' | 'languages' | 'tools', items: string[], name: (k: string) => string)}
+  <h3>{label}</h3>
+  <ul class="plain-list">
+    {#each items as k, i (i)}
+      <li>
+        <span class="nm">{name(k)}</span>
+        {#if editable}<button class="btn small" aria-label={`เอา ${name(k)} ออก`} onclick={() => patch([path], items.filter((_, j) => j !== i))}>✕</button>{/if}
+      </li>
+    {:else}
+      <li class="emptyline">ยังไม่มี</li>
+    {/each}
+  </ul>
+{/snippet}
 
 <div class="sheet dnd">
   <section class="sheet-head" aria-label="ข้อมูลตัวละคร">
@@ -253,6 +270,33 @@
           onchange={(e) => patch(['money', m], int(e, -999999, 999999))} /></label>
       {/each}
     </div>
+  </section>
+
+  <section class="block" aria-label="Feat ภาษา และเครื่องมือ">
+    {@render tags('Feat', 'feats', c.feats, (k) => srd.feats.find((f) => f.key === k)?.name ?? k)}
+    {#if editable}
+      <div class="row">
+        <select aria-label="เพิ่ม feat" bind:value={addFeat}>
+          <option value="">เลือก feat…</option>
+          {#each srd.feats.filter((f) => !c.feats.includes(f.key)) as f (f.key)}<option value={f.key}>{f.name}</option>{/each}
+        </select>
+        <button class="btn small" disabled={!addFeat} onclick={() => { patch(['feats'], [...c.feats, addFeat]); addFeat = ''; }}>เพิ่ม</button>
+      </div>
+    {/if}
+    {@render tags('ภาษา', 'languages', c.languages, (k) => k)}
+    {#if editable}
+      <div class="row">
+        <input type="text" aria-label="เพิ่มภาษา" maxlength="40" bind:value={addLang} />
+        <button class="btn small" disabled={!addLang.trim()} onclick={() => { patch(['languages'], [...c.languages, addLang.trim()]); addLang = ''; }}>เพิ่ม</button>
+      </div>
+    {/if}
+    {@render tags('เครื่องมือ', 'tools', c.tools, (k) => k)}
+    {#if editable}
+      <div class="row">
+        <input type="text" aria-label="เพิ่มเครื่องมือ" maxlength="80" bind:value={addTool} />
+        <button class="btn small" disabled={!addTool.trim()} onclick={() => { patch(['tools'], [...c.tools, addTool.trim()]); addTool = ''; }}>เพิ่ม</button>
+      </div>
+    {/if}
   </section>
 
   <div class="sheet-cols">

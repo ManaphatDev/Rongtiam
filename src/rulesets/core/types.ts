@@ -1,7 +1,7 @@
 // What a ruleset plugin provides. The table core knows nothing about any game system: it stores character data
 // opaquely and asks the ruleset for derived numbers, roll buttons, token bars, conditions and initiative.
 import type { Component } from 'svelte';
-import type { CharOp } from '../../sync/types';
+import type { CharOp, RollResult } from '../../sync/types';
 
 /** A roll the sheet offers (ability check, save, attack...). `expr` is a dice expression for the dice model. */
 export interface RollAction {
@@ -41,6 +41,19 @@ export interface SheetProps {
   roll: (label: string, expr: string) => void;
 }
 
+/** What a ruleset's character builder is given by the table. */
+export interface BuilderProps {
+  ctx: RulesetContext;
+  /** Keys the builder's saved draft (one per room). */
+  roomId: string;
+  /** Rolls dice on the table's 3D dice; resolves with the result once they have landed. `onDecided` fires earlier,
+   *  as soon as the result is final, so a caller can keep it even if the page goes away mid-roll. */
+  rollDice: (label: string, expr: string, onDecided?: (result: RollResult) => void) => Promise<RollResult>;
+  /** Creates the character. True when it was made: the builder then forgets its draft and the panel closes. */
+  onDone: (data: Record<string, unknown>) => Promise<boolean>;
+  onClose: () => void;
+}
+
 export interface RulesetModule {
   id: string;
   /** Thai name shown when choosing a system. */
@@ -62,4 +75,6 @@ export interface RulesetModule {
   applyHp(data: Record<string, unknown>, delta: number, ctx: RulesetContext): CharOp[];
   initiative(data: Record<string, unknown>, ctx: RulesetContext): { expr: string; tie: number };
   Sheet: () => Promise<Component<SheetProps>>;
+  /** A guided character builder, if the system has one (loaded lazily). */
+  Builder?: () => Promise<Component<BuilderProps>>;
 }
