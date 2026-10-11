@@ -1,7 +1,7 @@
 // The room's homebrew as a file, to carry it to another room. An imported file is untrusted: it is size-checked,
 // shape-checked, and every item is validated like a row before anything is written; the GM sees the plan first.
 import type { Srd } from '../data/schema';
-import { HB_KEY, HB_SCHEMAS, issuesOf, kindOfRow } from './kinds';
+import { HB_KEY, HB_SCHEMAS, MAX_PER_KIND, issuesOf, kindOfRow } from './kinds';
 import { merge } from './merge';
 
 export const HB_FORMAT = 'tabletop-homebrew';
@@ -22,7 +22,7 @@ export const toHbFile = (content: Row[]): HbFile => ({
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
 export function fromHbText(text: string): HbFile {
-  if (text.length > MAX_FILE_BYTES) throw new HbFileError('ไฟล์ใหญ่เกิน 1 MB');
+  if (new TextEncoder().encode(text).length > MAX_FILE_BYTES) throw new HbFileError('ไฟล์ใหญ่เกิน 1 MB');
   let f: unknown;
   try {
     f = JSON.parse(text);
@@ -55,10 +55,17 @@ export function planImport(file: HbFile, base: Srd, content: Row[]): ImportPlan 
   const byKey = new Map(content.filter((r) => r.kind.startsWith('hb-')).map((r) => [`${r.kind}/${r.key}`, r]));
   for (const i of valid) byKey.set(`${i.kind}/${i.key}`, { ...i, data: { ...i.data } });
   const broken = new Set(merge(base, [...byKey.values()]).broken.map((b) => `${b.kind}/${b.key}`));
+  // Each kind holds at most MAX_PER_KIND entries; a replacement keeps the count, an add takes a slot.
+  const count = new Map<string, number>();
+  for (const r of content) if (r.kind.startsWith('hb-')) count.set(r.kind, (count.get(r.kind) ?? 0) + 1);
   for (const i of valid) {
     if (broken.has(`${i.kind}/${i.key}`)) plan.skip.push({ kind: i.kind, key: i.key, reason: 'อ้างถึงของที่ไม่มี (เช่น Origin feat)' });
     else if (content.some((r) => r.kind === i.kind && r.key === i.key)) plan.replace.push(i);
-    else plan.add.push(i);
+    else if ((count.get(i.kind) ?? 0) >= MAX_PER_KIND) plan.skip.push({ kind: i.kind, key: i.key, reason: 'เกิน 200 ชิ้นต่อชนิด' });
+    else {
+      count.set(i.kind, (count.get(i.kind) ?? 0) + 1);
+      plan.add.push(i);
+    }
   }
   return plan;
 }

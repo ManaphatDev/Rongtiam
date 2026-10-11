@@ -43,4 +43,37 @@ describe('homebrew file', () => {
     expect(plan.add.map((i) => i.key).sort()).toEqual(['hb-cape', 'hb-lucky', 'hb-sailor']);
     expect(plan.skip.map((s) => s.key).sort()).toEqual(['BAD KEY', 'hb-junk', 'hb-lost', 'hb-wizardish']);
   });
+
+  it('caps each kind at 200 entries: over-cap adds are skipped', () => {
+    const room = Array.from({ length: 199 }, (_, n) => item(`hb-old-${n}`));
+    const file = {
+      format: 'tabletop-homebrew' as const, ruleset: 'dnd2024' as const, schemaVersion: 1 as const,
+      items: [item('hb-new-1'), item('hb-new-2'), item('hb-new-3')],
+    };
+    const plan = planImport(file, srd, room);
+    expect(plan.add.map((i) => i.key)).toEqual(['hb-new-1']);
+    expect(plan.skip).toEqual([
+      { kind: 'hb-item', key: 'hb-new-2', reason: 'เกิน 200 ชิ้นต่อชนิด' },
+      { kind: 'hb-item', key: 'hb-new-3', reason: 'เกิน 200 ชิ้นต่อชนิด' },
+    ]);
+  });
+
+  it('a replacement at the cap is still a replacement', () => {
+    const room = Array.from({ length: 200 }, (_, n) => item(`hb-old-${n}`));
+    const file = {
+      format: 'tabletop-homebrew' as const, ruleset: 'dnd2024' as const, schemaVersion: 1 as const,
+      items: [item('hb-old-0', 'Renamed'), item('hb-new')],
+    };
+    const plan = planImport(file, srd, room);
+    expect(plan.replace.map((i) => i.key)).toEqual(['hb-old-0']);
+    expect(plan.add).toEqual([]);
+    expect(plan.skip).toEqual([{ kind: 'hb-item', key: 'hb-new', reason: 'เกิน 200 ชิ้นต่อชนิด' }]);
+  });
+
+  it('measures the 1 MB limit in UTF-8 bytes, so Thai counts 3 bytes a character', () => {
+    const thai = 'ก'.repeat(400_000);
+    expect(thai.length).toBeLessThanOrEqual(MAX_FILE_BYTES);
+    expect(new TextEncoder().encode(thai).length).toBeGreaterThan(MAX_FILE_BYTES);
+    expect(() => fromHbText(thai)).toThrow('ไฟล์ใหญ่เกิน 1 MB');
+  });
 });
