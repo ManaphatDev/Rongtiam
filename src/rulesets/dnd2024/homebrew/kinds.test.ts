@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SrdZ } from '../data/schema';
 import raw from '../data/srd.json';
 import {
-  HB_KEY, HB_SCHEMAS, isHomebrew, kindOfRow, rowKind, slugKey, toSrdBackground, toSrdFeat, toSrdWeapon,
+  HB_KEY, HB_SCHEMAS, isHomebrew, kindOfRow, rowKind, slugKey, toSrdBackground, toSrdFeat, toSrdSpell, toSrdWeapon,
 } from './kinds';
 
 const srd = SrdZ.parse(raw);
@@ -71,5 +71,19 @@ describe('homebrew kinds', () => {
       { id: 'B', items: [], gp: 50 },
     ]);
     expect(SrdZ.shape.backgrounds.element.safeParse(b).success).toBe(true);
+  });
+
+  it('a spell lists only real class keys, and its damage type becomes lower case', () => {
+    const spell = {
+      name: 'Fire Bolt Plus', level: 0, school: 'Evocation', classes: ['wizard'], castingTime: '1 action', range: '120 feet',
+      components: 'V, S', duration: 'Instantaneous', concentration: false, ritual: false, save: null, attack: true,
+      damage: '1d10', damageType: 'Fire', desc: 'Hurl fire.', higher: null,
+    };
+    expect(HB_SCHEMAS.spell.safeParse(spell).success).toBe(true);
+    expect(HB_SCHEMAS.spell.safeParse({ ...spell, classes: ['Wizard'] }).success).toBe(false);
+    expect(HB_SCHEMAS.spell.safeParse({ ...spell, classes: [''] }).success).toBe(false);
+    const s = toSrdSpell('hb-fire-bolt-plus', HB_SCHEMAS.spell.parse(spell));
+    expect(s).toMatchObject({ key: 'hb-fire-bolt-plus', classes: ['wizard'], damageTypes: ['fire'] });
+    expect(SrdZ.shape.spells.element.safeParse(s).success).toBe(true);
   });
 });

@@ -45,6 +45,7 @@ const distinct = <T>(a: T[]) => new Set(a).size === a.length;
 
 export const WEAPON_PROPERTIES = ['finesse', 'light', 'heavy', 'reach', 'thrown', 'two-handed', 'versatile', 'ammunition', 'loading'] as const;
 const SKILL_KEYS = Object.keys(SKILLS);
+const CLASS_KEYS = ['barbarian', 'bard', 'cleric', 'druid', 'fighter', 'monk', 'paladin', 'ranger', 'rogue', 'sorcerer', 'warlock', 'wizard'] as const;
 
 const HbWeaponZ = z.object({
   name: text(80), simple: z.boolean(), ranged: z.boolean(), damage: dice, damageType: text(40),
@@ -58,7 +59,9 @@ const HbArmorZ = z.object({
 });
 const HbItemZ = z.object({ name: text(80), desc: z.string().trim().max(2000, 'ยาวได้ไม่เกิน 2000 ตัวอักษร') });
 const HbSpellZ = z.object({
-  name: text(80), level: int(0, 9), school: text(40), classes: z.array(z.string().max(40)).max(12).refine(distinct, 'อาชีพซ้ำกัน'),
+  name: text(80), level: int(0, 9), school: text(40),
+  /** SRD class keys (the sheet and builder match them exactly). */
+  classes: z.array(z.enum(CLASS_KEYS, { error: 'เลือกอาชีพจากรายการ' })).max(12).refine(distinct, 'อาชีพซ้ำกัน'),
   castingTime: text(60), range: text(60), components: text(120), duration: text(60),
   concentration: z.boolean(), ritual: z.boolean(), save: AbilityZ.nullable(), attack: z.boolean(),
   damage: dice.nullable(), damageType: optText(40), desc: text(4000), higher: optText(2000),
