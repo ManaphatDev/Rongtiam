@@ -135,7 +135,7 @@ src/sync/types.ts           + RoomSettings.startLevel
 
 migration ใหม่เพิ่ม trigger `BEFORE INSERT OR UPDATE` บน `characters` (ทำงานเฉพาะ `ruleset = 'dnd2024'`) สำหรับผู้ที่ไม่ใช่ GM ของห้อง:
 
-- **INSERT:** `data.level` ต้องเป็น 1 (หรือไม่มี) และ `data.levelAllowed` ต้องไม่เกิน `rooms.settings.startLevel` (ไม่มีค่า = 1)
+- **INSERT:** `data.level` และ `data.levelAllowed` (ถ้ามี) ต้องไม่เกิน `rooms.settings.startLevel` (ไม่มีค่า = 1) builder สร้างที่เลเวล 1 เสมอแล้วขึ้นต่อผ่านตัวช่วย ส่วนการนำเข้าไฟล์ใช้เพดานนี้ตรงๆ
 - **UPDATE:** `levelAllowed` ต้องเท่าเดิม และ `level` ใหม่ต้องเท่าเดิม หรือเท่ากับ `level เดิม + 1` และไม่เกิน `coalesce(levelAllowed, level เดิม)`
 - ผิดกฎ → `raise exception ... using errcode = '42501'` ซึ่ง op queue ถือเป็น error ถาวรและ rollback อยู่แล้ว
 
