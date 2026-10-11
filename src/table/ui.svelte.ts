@@ -29,6 +29,8 @@ export class Ui {
   initOpen = $state(false);
   /** GM: the custom ruleset's template editor. */
   templateOpen = $state(false);
+  /** GM: the D&D room's homebrew editor. */
+  homebrewOpen = $state(false);
   /** The ruleset's character builder is open over the table. */
   builderOpen = $state(false);
   /** The character whose level-up wizard is open over the table. */
