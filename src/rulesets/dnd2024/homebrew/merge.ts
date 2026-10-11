@@ -1,6 +1,6 @@
 // The SRD as this room sees it: the SRD's data with the room's valid homebrew appended. Rows that don't validate
-// are skipped and listed (the GM's editor flags them). The result is cached by the identity of the rows' `data`
-// objects: content rows are replaced, never mutated, and the host builds a fresh `ctx.content` array on every read.
+// are skipped and listed (the GM's editor flags them). The result is cached by each row's kind, key and the identity of its `data`
+// object: content rows are replaced, never mutated, and the host builds a fresh `ctx.content` array on every read.
 import type { RulesetContext } from '../../core/types';
 import type { Srd } from '../data/schema';
 import { getSrd } from '../index';
@@ -13,12 +13,11 @@ type Row = RulesetContext['content'][number];
 export interface BrokenRow { kind: string; key: string; issues: string[] }
 export interface Merged { srd: Srd; items: RoomItem[]; broken: BrokenRow[] }
 
-let last: { base: Srd; refs: object[]; merged: Merged } | null = null;
+let last: { base: Srd; rows: Row[]; merged: Merged } | null = null;
 
 export function merge(base: Srd, content: Row[]): Merged {
   const rows = content.filter((r) => r.kind.startsWith('hb-')).sort((a, b) => a.key.localeCompare(b.key));
-  const refs = rows.map((r) => r.data);
-  if (last && last.base === base && last.refs.length === refs.length && last.refs.every((d, i) => d === refs[i])) return last.merged;
+  if (last && last.base === base && last.rows.length === rows.length && last.rows.every((r, i) => r.kind === rows[i].kind && r.key === rows[i].key && r.data === rows[i].data)) return last.merged;
 
   const broken: BrokenRow[] = [];
   const ok: Record<HbKind, { key: string; data: unknown }[]> = {
@@ -65,7 +64,7 @@ export function merge(base: Srd, content: Row[]): Merged {
       broken,
     };
   }
-  last = { base, refs, merged };
+  last = { base, rows: rows.map((r) => ({ kind: r.kind, key: r.key, data: r.data })), merged };
   return merged;
 }
 

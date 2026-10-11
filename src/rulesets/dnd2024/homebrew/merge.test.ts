@@ -68,4 +68,15 @@ describe('merge', () => {
     expect(merge(srd, [{ kind: 'hb-weapon', key: 'hb-flame', data }]).srd).toBe(a);
     expect(merge(srd, [{ kind: 'hb-weapon', key: 'hb-flame', data: { ...sword } }]).srd).not.toBe(a);
   });
+  it('the cache also tells rows apart by key and kind, not only by data identity', () => {
+    const data = { ...sword };
+    const a = merge(srd, [{ kind: 'hb-weapon', key: 'hb-flame', data }]);
+    const b = merge(srd, [{ kind: 'hb-weapon', key: 'hb-other', data }]);
+    expect(b.srd).not.toBe(a.srd);
+    expect(b.srd.weapons.at(-1)?.key).toBe('hb-other');
+
+    const thing = { name: 'Thing', desc: 'x' };
+    expect(merge(srd, [{ kind: 'hb-weapon', key: 'hb-thing', data: thing }]).items).toEqual([]);
+    expect(merge(srd, [{ kind: 'hb-item', key: 'hb-thing', data: thing }]).items).toEqual([{ key: 'hb-thing', name: 'Thing', desc: 'x' }]);
+  });
 });
