@@ -53,6 +53,29 @@ describe('level gate', () => {
     expect((await patch(alice, c.id, [{ path: ['notes'], value: 'hi' }])).data.notes).toBe('hi');
   });
 
+  it('a player cannot raise the level with a direct update either', async () => {
+    const c = await insert(alice, { name: 'Direct', level: 1 });
+    expect(await errCode(as(db, alice).query(`update public.characters set data = data || '{"level":5}'::jsonb where id = $1`, [c.id]))).toBe('42501');
+  });
+
+  it('a player cannot remove the allowance the GM set', async () => {
+    const c = await insert(alice, { name: 'Hero', level: 1 });
+    await patch(gm, c.id, [{ path: ['levelAllowed'], value: 3 }]);
+    expect(await errCode(patch(alice, c.id, [{ path: ['levelAllowed'], value: null }]))).toBe('42501');
+  });
+
+  it('an absurd stored allowance does not break the sheet and counts as none', async () => {
+    const c = await insert(alice, { name: 'Hero', level: 1 });
+    await as(db, gm).query(`update public.characters set data = data || '{"levelAllowed":1000000000000}'::jsonb where id = $1`, [c.id]);
+    expect((await patch(alice, c.id, [{ path: ['notes'], value: 'still editable' }])).data.notes).toBe('still editable');
+    expect(await errCode(patch(alice, c.id, [{ path: ['level'], value: 2 }]))).toBe('42501');
+  });
+
+  it('a player cannot move a character out of dnd2024', async () => {
+    const c = await insert(alice, { name: 'Hero', level: 1 });
+    expect(await errCode(as(db, alice).query(`update public.characters set ruleset = 'custom' where id = $1`, [c.id]))).toBe('42501');
+  });
+
   it('a GM may set any level', async () => {
     const c = await insert(gm, { name: 'NPC', level: 12 });
     expect((await patch(gm, c.id, [{ path: ['level'], value: 3 }])).data.level).toBe(3);

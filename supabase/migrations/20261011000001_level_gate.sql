@@ -2,10 +2,11 @@
 -- level (rooms.settings.startLevel, default 1), levels up one step at a time only up to data.levelAllowed, and can
 -- never change levelAllowed. GMs, other rulesets and trusted RPCs (current_user <> 'authenticated') pass.
 
--- A jsonb number as an int, or the fallback for anything else (missing, null, text...).
+-- A jsonb number as an int, or the fallback for anything else (missing, null, text, out of int range...).
 create or replace function private.json_int(v jsonb, fallback int) returns int
 language sql immutable set search_path = '' as $$
-  select case when jsonb_typeof(v) = 'number' then floor((v #>> '{}')::numeric)::int else fallback end
+  select case when jsonb_typeof(v) = 'number' and (v #>> '{}')::numeric between -2147483648 and 2147483647
+    then floor((v #>> '{}')::numeric)::int else fallback end
 $$;
 grant execute on function private.json_int(jsonb, int) to authenticated;
 
@@ -18,7 +19,18 @@ declare
   allowed int;
   start_level int;
 begin
-  if new.ruleset <> 'dnd2024' or current_user <> 'authenticated' or private.is_gm(new.room_id) then
+  if current_user <> 'authenticated' then
+    return new;
+  end if;
+  -- Who is exempt is decided from the row as it was (OLD) on update, so a write cannot move itself out of the gate.
+  if tg_op = 'UPDATE' then
+    if old.ruleset <> 'dnd2024' or private.is_gm(old.room_id) then
+      return new;
+    end if;
+    if new.ruleset is distinct from old.ruleset or new.room_id is distinct from old.room_id then
+      raise exception 'ruleset and room cannot change' using errcode = '42501';
+    end if;
+  elsif new.ruleset <> 'dnd2024' or private.is_gm(new.room_id) then
     return new;
   end if;
   lv_new := private.json_int(new.data -> 'level', 1);
