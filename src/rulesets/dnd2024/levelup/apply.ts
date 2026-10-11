@@ -7,7 +7,7 @@ import { derive } from '../derive';
 import { ABILITY_TH, SKILLS, type Ability, type Skill } from '../i18n/th';
 import type { D2024 } from '../model';
 import type { LevelDraft } from './draft';
-import { featBoost } from './srdText';
+import { boostOf } from './srdText';
 import { classOfChar, pointsAt, label, rawLevels } from './steps';
 import { validateLevel } from './validate';
 
@@ -46,7 +46,8 @@ export function appendFeatures(existing: string, full: string, names: string): s
 
 /** The score a feat's +1 goes to: only when that feat raises scores and `ability` is one it may raise. */
 export function boostFor(srd: Srd, featKey: string, ability: Ability | null): Ability | null {
-  const boost = featBoost(srd.feats.find((f) => f.key === featKey)?.desc ?? '');
+  const f = srd.feats.find((x) => x.key === featKey);
+  const boost = f ? boostOf(f) : null;
   return boost && ability && boost.abilities.includes(ability) ? ability : null;
 }
 

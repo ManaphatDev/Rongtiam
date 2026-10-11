@@ -30,6 +30,11 @@ export function featBoost(desc: string): { abilities: Ability[]; max: number } |
   return { abilities: named.length ? named : [...ABILITIES], max: Number(m[2]) };
 }
 
+/** A feat's ability increase: the homebrew `boost` field when present (null means none), else read from the text. */
+export function boostOf(f: { desc: string; boost?: { abilities: Ability[]; max: number } | null }): { abilities: Ability[]; max: number } | null {
+  return f.boost !== undefined ? f.boost : featBoost(f.desc);
+}
+
 /**
  * Whether a character meets a feat prerequisite such as "Level 4+, Strength or Dexterity 13+" or
  * "Level 19+, Spellcasting Feature". Parts the reader doesn't recognise count as met.

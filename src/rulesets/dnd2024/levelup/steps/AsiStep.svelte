@@ -6,7 +6,7 @@
   import { ABILITIES, ABILITY_TH, type Ability } from '../../i18n/th';
   import type { D2024 } from '../../model';
   import type { LevelDraft } from '../draft';
-  import { featBoost, meetsPrerequisite } from '../srdText';
+  import { boostOf, meetsPrerequisite } from '../srdText';
   import { generalFeats, isCaster } from '../validate';
 
   let { draft = $bindable(), c, srd }: { draft: LevelDraft; c: D2024; srd: Srd } = $props();
@@ -18,7 +18,7 @@
   })));
   const featKey = $derived(draft.asi?.kind === 'feat' ? draft.asi.key : null);
   const chosen = $derived(featKey ? srd.feats.find((f) => f.key === featKey) : undefined);
-  const boost = $derived(chosen ? featBoost(chosen.desc) : null);
+  const boost = $derived(chosen ? boostOf(chosen) : null);
   const abilityOpts = (by: number, max: number, only: readonly Ability[] = ABILITIES) =>
     only.map((a) => ({ id: a, label: `${ABILITY_TH[a].name} (${c.abilities[a]})`, disabled: c.abilities[a] + by > max }));
 

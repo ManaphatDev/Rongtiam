@@ -4,7 +4,7 @@ import type { Srd } from '../data/schema';
 import { ABILITIES, type Ability } from '../i18n/th';
 import type { D2024 } from '../model';
 import { emptyLevelDraft, type LevelDraft } from './draft';
-import { featBoost, meetsPrerequisite } from './srdText';
+import { boostOf, meetsPrerequisite } from './srdText';
 import {
   classPicks, expertisePool, fightingStylePool, invocationPool, levelSteps, masteryPool, metamagicPool,
 } from './steps';
@@ -22,7 +22,7 @@ export function autoLevel(c: D2024, srd: Srd): LevelDraft {
   if (steps.includes('asi')) d.asi = { kind: 'scores', mode: '1/1', picks: lowest(c, 1, 20).slice(0, 2) };
   if (steps.includes('boon')) {
     const boon = epicBoons(srd).find((b) => !c.feats.includes(b.key) && meetsPrerequisite(b.prerequisite, next, c.abilities, isCaster(c, srd)))!;
-    const max = featBoost(boon.desc)?.max ?? 30;
+    const max = boostOf(boon)?.max ?? 30;
     d.boon = { key: boon.key, ability: lowest(c, 1, max)[0] ?? null };
   }
   if (steps.includes('class')) {

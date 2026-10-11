@@ -4,7 +4,7 @@
   import { ABILITY_TH, type Ability } from '../../i18n/th';
   import type { D2024 } from '../../model';
   import type { LevelDraft } from '../draft';
-  import { featBoost, meetsPrerequisite } from '../srdText';
+  import { boostOf, meetsPrerequisite } from '../srdText';
   import { epicBoons, isCaster } from '../validate';
 
   let { draft = $bindable(), c, srd }: { draft: LevelDraft; c: D2024; srd: Srd } = $props();
@@ -14,7 +14,7 @@
     disabled: !meetsPrerequisite(f.prerequisite, c.level + 1, c.abilities, isCaster(c, srd)) || c.feats.includes(f.key),
   })));
   const chosen = $derived(srd.feats.find((f) => f.key === draft.boon?.key));
-  const boost = $derived(chosen ? featBoost(chosen.desc) : null);
+  const boost = $derived(chosen ? boostOf(chosen) : null);
 </script>
 
 <Pick legend="Epic Boon" options={boons} value={draft.boon?.key ?? null} onpick={(k) => (draft.boon = { key: k, ability: null })} />

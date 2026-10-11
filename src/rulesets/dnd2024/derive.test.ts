@@ -147,3 +147,38 @@ describe('hit points from hpGains', () => {
     expect(derive(c, srd).maxHp).toBe(4 + 1); // d6 - 2 at level 1; 1 - 2 counts as 1
   });
 });
+
+describe('homebrew weapon and armor bonus', () => {
+  const longsword = srd.weapons.find((w) => w.key === 'longsword')!;
+  const leather = srd.armor.find((a) => a.key === 'leather-armor')!;
+  const s = {
+    ...srd,
+    weapons: [...srd.weapons, { ...longsword, key: 'hb-flame', name: 'Flame', bonus: 2 }],
+    armor: [...srd.armor, { ...leather, key: 'hb-hide', name: 'Hide', bonus: 1 }],
+  };
+  const fighter = (over: Record<string, unknown>) =>
+    parseCharacter({ classKey: 'fighter', abilities: { str: 16, dex: 14, con: 10, int: 10, wis: 10, cha: 10 }, ...over });
+
+  it('adds the weapon bonus to the attack and the damage', () => {
+    const plain = derive(fighter({ weapons: ['longsword'] }), s).attacks[0];
+    const magic = derive(fighter({ weapons: ['hb-flame'] }), s).attacks[0];
+    expect(magic.toHit).toBe(plain.toHit + 2);
+    expect(magic.damage).toBe('1d8+5'); // Str 3 + 2
+    expect(magic.versatile).toBe('1d10+5');
+  });
+
+  it('adds the armor bonus to AC', () => {
+    expect(derive(fighter({ armor: 'hb-hide' }), s).ac).toBe(derive(fighter({ armor: 'leather-armor' }), s).ac + 1);
+  });
+
+  it('ignores a weapon or armor that is no longer there', () => {
+    const c = fighter({ weapons: ['hb-gone', 'longsword'], armor: 'hb-gone' });
+    expect(derive(c, s).attacks.map((a) => a.key)).toEqual(['longsword']);
+    expect(derive(c, s).ac).toBe(10 + 2); // unarmored: 10 + Dex
+  });
+
+  it('SRD weapons and armor carry bonus 0', () => {
+    expect(srd.weapons.every((w) => w.bonus === 0)).toBe(true);
+    expect(srd.armor.every((a) => a.bonus === 0)).toBe(true);
+  });
+});

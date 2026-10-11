@@ -5,7 +5,7 @@ import type { Srd } from '../data/schema';
 import { ABILITY_TH, type Ability } from '../i18n/th';
 import type { D2024 } from '../model';
 import type { LevelDraft } from './draft';
-import { featBoost, meetsPrerequisite } from './srdText';
+import { boostOf, meetsPrerequisite } from './srdText';
 import {
   classOfChar, classPicks, expertisePool, fightingStylePool, invocationPool, levelSteps, masteryPool, metamagicPool,
   type LevelStepId,
@@ -55,7 +55,7 @@ export function validateLevel(c: D2024, d: LevelDraft, srd: Srd, isGM: boolean):
       else {
         if (!meetsPrerequisite(f.prerequisite, next, c.abilities, isCaster(c, srd))) add('asi', `ยังไม่ผ่านเงื่อนไขของ ${f.name}: ${f.prerequisite}`);
         if (c.feats.includes(f.key) && !repeatable(f)) add('asi', `มี ${f.name} อยู่แล้ว ให้เลือก feat อื่น`);
-        const boost = featBoost(f.desc);
+        const boost = boostOf(f);
         if (boost) {
           if (!asi.ability || !boost.abilities.includes(asi.ability)) add('asi', `เลือกค่าพลังที่ ${f.name} เพิ่มให้`);
           else if (raise(asi.ability, 1, boost.max)) add('asi', `${ABILITY_TH[asi.ability].name}จะเกิน ${boost.max} ให้เลือกค่าอื่น`);
@@ -70,7 +70,7 @@ export function validateLevel(c: D2024, d: LevelDraft, srd: Srd, isGM: boolean):
     else {
       if (!meetsPrerequisite(f.prerequisite, next, c.abilities, isCaster(c, srd))) add('boon', `ยังไม่ผ่านเงื่อนไขของ ${f.name}: ${f.prerequisite}`);
       if (c.feats.includes(f.key)) add('boon', `มี ${f.name} อยู่แล้ว ให้เลือก Boon อื่น`);
-      const boost = featBoost(f.desc);
+      const boost = boostOf(f);
       const a = d.boon?.ability ?? null;
       if (boost && (!a || !boost.abilities.includes(a))) add('boon', 'เลือกค่าพลังที่จะ +1');
       else if (boost && a && raise(a, 1, boost.max)) add('boon', `${ABILITY_TH[a].name}จะเกิน ${boost.max} ให้เลือกค่าอื่น`);
