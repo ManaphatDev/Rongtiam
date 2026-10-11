@@ -58,6 +58,8 @@ export const DraftZ = z.object({
   bgEquip: maybe(),
   cantrips: strings(),
   spells: strings(),
+  /** The level to start at: the character is built at 1, then levelled up to this one (phase 5b). */
+  startLevel: z.number().int().min(1).max(20).default(1),
   name: z.string().max(60).default(''),
   notes: z.string().max(2000).default(''),
 });

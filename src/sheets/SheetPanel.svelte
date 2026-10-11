@@ -132,7 +132,8 @@
           <p class="hint err">โหลดชีทไม่สำเร็จ ลองรีเฟรชหน้า</p>
         {:else if Sheet}
           <!-- A different character gets a fresh sheet (its own pickers and open sections). -->
-          {#key c.id}<Sheet data={c.data} {ctx} {editable} isGM={store.isGM} {patch} {roll} />{/key}
+          {#key c.id}<Sheet data={c.data} {ctx} {editable} isGM={store.isGM} {patch} {roll}
+            onLevelUp={mod.LevelUp ? () => { ui.levelUpOpen = c.id; ui.sheetOpen = null; } : undefined} />{/key}
         {:else}
           <div class="spinner" role="status" aria-label="กำลังโหลดชีท"></div>
         {/if}

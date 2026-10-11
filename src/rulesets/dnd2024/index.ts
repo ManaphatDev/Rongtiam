@@ -60,6 +60,7 @@ export const dnd2024: RulesetModule = {
   },
   Sheet: () => import('./Sheet.svelte').then((m) => m.default),
   Builder: () => import('./builder/Builder.svelte').then((m) => m.default),
+  LevelUp: () => import('./levelup/LevelUp.svelte').then((m) => m.default),
 };
 
 export { viewOf };

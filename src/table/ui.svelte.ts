@@ -31,6 +31,8 @@ export class Ui {
   templateOpen = $state(false);
   /** The ruleset's character builder is open over the table. */
   builderOpen = $state(false);
+  /** The character whose level-up wizard is open over the table. */
+  levelUpOpen = $state<string | null>(null);
   tab = $state<Tab>('map');
   tool = $state<Tool>('select');
   sideHidden = $state(false);
