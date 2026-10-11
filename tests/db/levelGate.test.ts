@@ -30,6 +30,7 @@ describe('level gate', () => {
     expect((await insert(alice, { name: 'A' })).data).toEqual({ name: 'A' });
     expect(await errCode(insert(alice, { name: 'B', level: 2 }))).toBe('42501');
     expect(await errCode(insert(alice, { name: 'B', level: 1, levelAllowed: 3 }))).toBe('42501');
+    expect(await errCode(insert(alice, { name: 'B', level: 1, levelAllowed: 1.5 }))).toBe('42501'); // unreadable sheet
     await setStart(3);
     expect((await insert(alice, { name: 'C', level: 1, levelAllowed: 3 })).data.levelAllowed).toBe(3);
     expect((await insert(alice, { name: 'D', level: 3 })).data.level).toBe(3);

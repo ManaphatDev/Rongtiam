@@ -7,7 +7,7 @@
   import { parseCharacter } from '../model';
   import { diffOps, levelUp } from './apply';
   import type { LevelDraft } from './draft';
-  import { clearLevelDraft, loadLevelDraft, saveLevelDraft } from './persist';
+  import { loadLevelDraft, saveLevelDraft } from './persist';
   import { classOfChar, levelSteps, type LevelStepId } from './steps';
   import AsiStep from './steps/AsiStep.svelte';
   import BoonStep from './steps/BoonStep.svelte';
@@ -105,7 +105,8 @@
         return;
       }
       const n = levelUp(now, $state.snapshot(draft) as LevelDraft, srd, isGM);
-      clearLevelDraft(id, next);
+      // The draft is kept: if the server refuses this level, the HP roll is still there. Drafts are keyed by level,
+      // so a leftover one is never read for another level.
       apply(diffOps(now, n));
     } catch (e) {
       error = (e as Error).message;
