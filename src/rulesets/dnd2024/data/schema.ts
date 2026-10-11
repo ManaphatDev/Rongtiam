@@ -63,6 +63,8 @@ export const BackgroundZ = z.object({
   name: z.string(),
   abilities: z.array(AbilityZ).length(3),
   feat: z.string(),
+  /** The Origin feat's key when the background names it by key (homebrew); SRD backgrounds name it in `feat` text only. */
+  featKey: z.string().optional(),
   skills: z.array(z.string()).length(2),
   tool: z.string(),
   equipment: z.string(),
@@ -76,6 +78,10 @@ export const FeatZ = z.object({
   type: z.string(),
   prerequisite: z.string().nullable(),
   desc: z.string(),
+  /** Homebrew: whether the feat can be taken more than once (SRD feats say it in `desc`). */
+  repeatable: z.boolean().optional(),
+  /** Homebrew: the ability increase the feat gives (SRD feats say it in `desc`); null = none. */
+  boost: z.object({ abilities: z.array(AbilityZ).min(1), max: z.number().int() }).nullable().optional(),
 });
 
 export const SpellZ = z.object({
@@ -110,6 +116,8 @@ export const WeaponZ = z.object({
   versatile: z.string().nullable(),
   range: z.tuple([z.number(), z.number()]).nullable(),
   mastery: z.string().nullable(),
+  /** A magic weapon's +1/+2/+3 (homebrew); 0 for the SRD's. */
+  bonus: z.number().int().min(0).max(3).default(0),
 });
 
 export const ArmorZ = z.object({
@@ -121,6 +129,8 @@ export const ArmorZ = z.object({
   cap: z.number().int().nullable(),
   strength: z.number().int().nullable(),
   stealthDisadvantage: z.boolean(),
+  /** A magic armor's +1/+2/+3 (homebrew); 0 for the SRD's. */
+  bonus: z.number().int().min(0).max(3).default(0),
 });
 
 export const SrdZ = z.object({

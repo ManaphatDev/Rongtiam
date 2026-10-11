@@ -3,6 +3,7 @@ import type { RulesetContext, RulesetModule } from '../core/types';
 import { SrdZ, type Srd } from './data/schema';
 import { CONDITIONS } from './i18n/th';
 import { derive } from './derive';
+import { srdFor } from './homebrew/merge';
 import { parseCharacter, newCharacter } from './model';
 import { roomSkillsOf, type RoomSkills } from './roomSkills';
 import { activeConditions, applyHp, bars, rollActions, toggleCondition, view } from './rules';
@@ -13,14 +14,17 @@ export function getSrd(): Srd {
   return srd;
 }
 
-// Sheet data and room skills are replaced (never mutated) on every change, so views are cached by identity.
-const cache = new WeakMap<RoomSkills, WeakMap<object, ReturnType<typeof view>>>();
+// Sheet data, room skills and the room's SRD are replaced (never mutated) on every change, so views are cached by identity.
+const cache = new WeakMap<Srd, WeakMap<RoomSkills, WeakMap<object, ReturnType<typeof view>>>>();
 const viewOf = (data: Record<string, unknown>, ctx: RulesetContext) => {
+  const s = srdFor(ctx);
   const rs = roomSkillsOf(ctx);
-  let byData = cache.get(rs);
-  if (!byData) cache.set(rs, (byData = new WeakMap()));
+  let bySrd = cache.get(s);
+  if (!bySrd) cache.set(s, (bySrd = new WeakMap()));
+  let byData = bySrd.get(rs);
+  if (!byData) bySrd.set(rs, (byData = new WeakMap()));
   let v = byData.get(data);
-  if (!v) byData.set(data, (v = view(data, getSrd(), rs.skills)));
+  if (!v) byData.set(data, (v = view(data, s, rs.skills)));
   return v;
 };
 
@@ -31,9 +35,9 @@ export const dnd2024: RulesetModule = {
     srd ??= SrdZ.parse((await import('./data/srd.json')).default);
   },
   // A new character starts at full health.
-  newCharacter: () => {
+  newCharacter: (ctx) => {
     const c = newCharacter();
-    c.hp.current = derive(c, getSrd()).maxHp;
+    c.hp.current = derive(c, srdFor(ctx)).maxHp;
     return c as unknown as Record<string, unknown>;
   },
   parse: (raw) => parseCharacter(raw) as unknown as Record<string, unknown>,

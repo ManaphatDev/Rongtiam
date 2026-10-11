@@ -50,6 +50,10 @@ begin
   if tg_op = 'INSERT' then
     select private.json_int(r.settings -> 'startLevel', 1) into start_level from public.rooms r where r.id = new.room_id;
     start_level := coalesce(start_level, 1);
+    -- A numeric allowance must be a whole number too, or the new sheet could not be read.
+    if jsonb_typeof(new.data -> 'levelAllowed') = 'number' and private.json_int(new.data -> 'levelAllowed', null) is null then
+      raise exception 'levelAllowed must be a whole number' using errcode = '42501';
+    end if;
     if lv_new > start_level or private.json_int(new.data -> 'levelAllowed', 1) > start_level then
       raise exception 'level above the room start level' using errcode = '42501';
     end if;

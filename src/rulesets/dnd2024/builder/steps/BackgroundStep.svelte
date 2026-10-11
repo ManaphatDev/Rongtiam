@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Srd } from '../../data/schema';
+  import { hbLabel } from '../../homebrew/kinds';
   import { ABILITY_TH, BACKGROUNDS_TH, SKILLS, type Ability, type Skill } from '../../i18n/th';
   import type { Draft } from '../draft';
   import { backgroundFeat, backgroundOf } from '../helpers';
@@ -35,7 +36,7 @@
   }
 </script>
 
-<Pick legend="ฉากหลัง" options={srd.backgrounds.map((b) => ({ id: b.key, label: BACKGROUNDS_TH[b.key] ?? b.name, hint: b.name }))}
+<Pick legend="ฉากหลัง" options={srd.backgrounds.map((b) => ({ id: b.key, label: hbLabel(b.key, BACKGROUNDS_TH[b.key] ?? b.name), hint: b.name }))}
   value={draft.background} onpick={pickBackground} />
 
 {#if bg}

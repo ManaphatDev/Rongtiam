@@ -388,8 +388,9 @@ export class RoomStore {
 
   // ---- room content and initiative ------------------------------------------------------
 
-  async saveContent(kind: string, key: string, data: Record<string, unknown>) {
-    await this.run(() => this.backend.upsertContent({ kind, key, data }));
+  /** True when the write went through; on failure the error is reported (toast) and this resolves false. */
+  async saveContent(kind: string, key: string, data: Record<string, unknown>): Promise<boolean> {
+    return this.run(() => this.backend.upsertContent({ kind, key, data }));
   }
 
   async deleteContent(id: string) {
@@ -415,11 +416,13 @@ export class RoomStore {
     await this.run(() => this.backend.deleteInit(id));
   }
 
-  private async run(fn: () => Promise<unknown>) {
+  private async run(fn: () => Promise<unknown>): Promise<boolean> {
     try {
       await fn();
+      return true;
     } catch (e) {
       this.onError(rejectMessage(e as SendError));
+      return false;
     }
   }
 

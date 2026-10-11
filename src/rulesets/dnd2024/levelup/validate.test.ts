@@ -6,7 +6,8 @@ import raw from '../data/srd.json';
 import { parseCharacter, type D2024 } from '../model';
 import { emptyLevelDraft, type LevelDraft } from './draft';
 import { masteryPool } from './steps';
-import { validateLevel } from './validate';
+import { merge } from '../homebrew/merge';
+import { generalFeats, validateLevel } from './validate';
 
 const srd = SrdZ.parse(raw);
 const made = (k: string, level = 1): D2024 => ({ ...build(autoDraft(srd, k, 'soldier', 'human'), srd), level });
@@ -84,5 +85,19 @@ describe('validateLevel', () => {
   it('a Paladin picks a Fighting Style it does not have', () => {
     expect(msgs(made('paladin'), avg(2))).toEqual(['class: เลือก Fighting Style ที่ยังไม่มี']);
     expect(msgs(made('paladin'), { ...avg(2), fightingStyle: 'defense' })).toEqual([]);
+  });
+});
+
+describe('validateLevel: homebrew feats', () => {
+  const room = merge(srd, [
+    { kind: 'hb-feat', key: 'hb-wise', data: { name: 'Wise Owl', type: 'general', prerequisite: 'Level 4+', desc: 'Hoot.', repeatable: false, boostAbilities: ['wis'], boostMax: 20 } },
+  ]).srd;
+
+  it('a homebrew general feat is offered and its boost is checked', () => {
+    expect(generalFeats(room).map((f) => f.key)).toContain('hb-wise');
+    const c = { ...build(autoDraft(room, 'wizard', 'soldier', 'human'), room), level: 3 };
+    const d = (ability: 'wis' | 'int' | null): LevelDraft => ({ ...avg(4), asi: { kind: 'feat', key: 'hb-wise', ability } });
+    expect(validateLevel(c, d('int'), room, true).map((i) => i.message)).toContain('เลือกค่าพลังที่ Wise Owl เพิ่มให้');
+    expect(validateLevel(c, d('wis'), room, true)).toEqual([]);
   });
 });
