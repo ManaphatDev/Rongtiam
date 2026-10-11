@@ -2,12 +2,11 @@
   import type { Srd } from '../../data/schema';
   import { derive } from '../../derive';
   import type { D2024 } from '../../model';
-  import type { LevelDraft } from '../draft';
   import { classOfChar, type LevelStepId } from '../steps';
   import type { LevelIssue } from '../validate';
 
-  let { c, draft, srd, issues, labels, onjump }: {
-    c: D2024; draft: LevelDraft; srd: Srd; issues: LevelIssue[]; labels: Record<LevelStepId, string>;
+  let { c, srd, issues, labels, onjump }: {
+    c: D2024; srd: Srd; issues: LevelIssue[]; labels: Record<LevelStepId, string>;
     onjump: (step: LevelStepId) => void;
   } = $props();
 

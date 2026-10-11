@@ -46,6 +46,8 @@
   const con = Math.floor((c.abilities.con - 10) / 2);
 
   $effect(() => {
+    // While the dice roll, the stored draft already holds the decided result; the in-memory one doesn't yet.
+    if (rolling) return;
     saveLevelDraft(id, { step, draft: $state.snapshot(draft) as LevelDraft });
   });
   $effect(() => {
@@ -69,6 +71,11 @@
     const target = draft;
     const die = cls.hitDie;
     const keep = (total: number) => total >= 1 && total <= die;
+    // A roll that was decided (and stored) but whose dice never landed is still the roll.
+    const restore = () => {
+      const stored = loadLevelDraft(key, next).draft.hp;
+      if (target.hp.rolled === null && stored.method === 'roll' && stored.rolled !== null) target.hp = stored;
+    };
     try {
       const r = await rollDice('HP', `1d${die}`, (result) => {
         if (!keep(result.total)) return;
@@ -80,6 +87,7 @@
       else error = 'ผลทอยผิดปกติ ลองทอยใหม่';
     } catch {
       // the table already told the player the roll failed
+      restore();
     } finally {
       rolling = false;
     }
@@ -115,7 +123,7 @@
     <ol class="builder-steps">
       {#each steps as s, i (s)}
         <li aria-current={i === at ? 'step' : undefined}>
-          <button type="button" disabled={i > reached} onclick={() => go(i)}>{i + 1}. {LABELS[s]}</button>
+          <button type="button" disabled={i > reached || rolling} onclick={() => go(i)}>{i + 1}. {LABELS[s]}</button>
         </li>
       {/each}
     </ol>
@@ -130,7 +138,7 @@
       {:else if current === 'asi'}<AsiStep bind:draft {c} {srd} />
       {:else if current === 'boon'}<BoonStep bind:draft {c} {srd} />
       {:else if current === 'class'}<ClassPicksStep bind:draft {c} {srd} />
-      {:else}<LevelReview {c} {draft} {srd} issues={all} labels={LABELS} onjump={jump} />
+      {:else}<LevelReview {c} {srd} issues={all} labels={LABELS} onjump={jump} />
       {/if}
       {#if mine.length}
         <ul class="builder-issues" aria-live="polite">
@@ -141,11 +149,11 @@
   </div>
 
   <footer class="sheet-bar">
-    <button class="btn" type="button" disabled={at === 0} onclick={() => go(at - 1)}>ย้อนกลับ</button>
+    <button class="btn" type="button" disabled={at === 0 || rolling} onclick={() => go(at - 1)}>ย้อนกลับ</button>
     {#if current === 'review'}
       <button class="btn primary" type="button" disabled={all.length > 0} onclick={confirm}>ยืนยันขึ้นเลเวล {next}</button>
     {:else}
-      <button class="btn primary" type="button" disabled={mine.length > 0} onclick={() => go(at + 1)}>ถัดไป</button>
+      <button class="btn primary" type="button" disabled={mine.length > 0 || rolling} onclick={() => go(at + 1)}>ถัดไป</button>
     {/if}
     {#if error}<span class="hint err" role="status">{error}</span>{/if}
   </footer>

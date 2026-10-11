@@ -12,8 +12,8 @@
 
 <Pick legend="วิธีเพิ่ม HP" value={draft.hp.method}
   options={[
-    { id: 'average', label: `ค่าเฉลี่ย (${average})`, disabled: draft.hp.rolled !== null },
-    { id: 'roll', label: `ทอย 1d${hitDie}` },
+    { id: 'average', label: `ค่าเฉลี่ย (${average})`, disabled: rolling || draft.hp.rolled !== null },
+    { id: 'roll', label: `ทอย 1d${hitDie}`, disabled: rolling },
   ]}
   onpick={(m) => (draft.hp = { method: m as 'average' | 'roll', rolled: draft.hp.rolled })} />
 
