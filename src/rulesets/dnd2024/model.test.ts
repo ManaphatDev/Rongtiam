@@ -20,3 +20,17 @@ describe('character model', () => {
     expect(D2024Z.parse({}).feats).toEqual([]);
   });
 });
+
+describe('phase 5b fields', () => {
+  it('an older sheet gets no gains and no allowance', () => {
+    const c = parseCharacter({ name: 'Old', level: 5 });
+    expect(c.hpGains).toEqual([]);
+    expect(c.levelAllowed).toBeNull();
+  });
+
+  it('refuses gains outside a Hit Die and an allowance past 20', () => {
+    expect(() => parseCharacter({ hpGains: [0] })).toThrow();
+    expect(() => parseCharacter({ hpGains: [13] })).toThrow();
+    expect(() => parseCharacter({ levelAllowed: 21 })).toThrow();
+  });
+});

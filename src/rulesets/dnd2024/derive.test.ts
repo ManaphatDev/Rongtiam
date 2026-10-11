@@ -129,3 +129,21 @@ describe('room and personal skills', () => {
     expect(derive(c, srd, []).extraSkills.map((s) => s.id)).toEqual(['own:a1', 'own:a2']);
   });
 });
+
+describe('hit points from hpGains', () => {
+  const fighter = (over: Record<string, unknown>) =>
+    parseCharacter({ classKey: 'fighter', abilities: { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 }, ...over });
+
+  it('counts the fixed average where no gain is stored, as before', () => {
+    expect(derive(fighter({ level: 3 }), srd).maxHp).toBe(12 + 8 + 8); // d10 + Con 2; average 6 + 2
+  });
+
+  it('uses each stored gain at its own level and the average after them', () => {
+    expect(derive(fighter({ level: 4, hpGains: [10, 1] }), srd).maxHp).toBe(12 + 12 + 3 + 8);
+  });
+
+  it('never adds less than 1 for a level', () => {
+    const c = parseCharacter({ classKey: 'wizard', level: 2, hpGains: [1], abilities: { str: 10, dex: 10, con: 6, int: 10, wis: 10, cha: 10 } });
+    expect(derive(c, srd).maxHp).toBe(4 + 1); // d6 - 2 at level 1; 1 - 2 counts as 1
+  });
+});

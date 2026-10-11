@@ -23,6 +23,10 @@ export const D2024Z = z.object({
   classKey: z.string().default('fighter'),
   subclass: z.string().nullable().default(null),
   level: z.number().int().min(1).max(20).default(1),
+  /** Hit Die results at levels 2, 3, 4… (without Constitution). A level with none counts the fixed average. */
+  hpGains: z.array(z.number().int().min(1).max(12)).max(19).default(() => []),
+  /** The highest level the GM allows; null means the current level. Players level up only up to it (phase 5b). */
+  levelAllowed: z.number().int().min(1).max(20).nullable().default(null),
   species: z.string().default('human'),
   background: z.string().default('soldier'),
   abilities: AbilitiesZ.default({ str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }),

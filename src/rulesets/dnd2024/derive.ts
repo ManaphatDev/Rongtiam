@@ -107,10 +107,12 @@ export function derive(c: D2024, srd: Srd, roomSkills: RoomSkill[] = []): Derive
   else ac = 10 + mods.dex;
   if (c.shield) ac += srd.armor.find((a) => a.category === 'shield')?.base ?? 2;
 
-  // Hit points: the full die at 1st level, the fixed average after that, Constitution every level (at least 1).
+  // Hit points: the full die at 1st level; after that the die rolled or chosen at each level (hpGains), or the
+  // fixed average where none is stored; Constitution every level (at least 1).
   const hitDie = cls?.hitDie ?? 8;
   const perLevel = (die: number) => Math.max(1, die + mods.con);
-  const maxHp = perLevel(hitDie) + (c.level - 1) * perLevel(hitDie / 2 + 1);
+  let maxHp = perLevel(hitDie);
+  for (let l = 2; l <= c.level; l++) maxHp += perLevel(c.hpGains[l - 2] ?? hitDie / 2 + 1);
 
   let speed = species?.speed ?? 30;
   if (armor?.strength && c.abilities.str < armor.strength) speed -= 10;
