@@ -19,6 +19,8 @@ export const kindOfRow = (kind: string): HbKind | null => {
 export const HB_KEY = /^hb-[a-z0-9-]{1,60}$/;
 export const MAX_PER_KIND = 200;
 export const isHomebrew = (key: string) => key.startsWith('hb-');
+/** A name as the pickers and the sheet show it: homebrew entries are tagged. */
+export const hbLabel = (key: string, name: string): string => (isHomebrew(key) ? `${name} · homebrew` : name);
 
 /** "Flame Tongue" → "hb-flame-tongue", made unique against `taken`. A name with no Latin letters becomes "hb-item". */
 export function slugKey(name: string, taken: string[]): string {
@@ -61,7 +63,7 @@ const HbItemZ = z.object({ name: text(80), desc: z.string().trim().max(2000, '�
 const HbSpellZ = z.object({
   name: text(80), level: int(0, 9), school: text(40),
   /** SRD class keys (the sheet and builder match them exactly). */
-  classes: z.array(z.enum(CLASS_KEYS, { error: 'เลือกอาชีพจากรายการ' })).max(12).refine(distinct, 'อาชีพซ้ำกัน'),
+  classes: z.array(z.enum(CLASS_KEYS, { error: 'เลือกอาชีพจากรายการ' })).min(1, 'เลือกอาชีพอย่างน้อย 1 อาชีพ').max(12).refine(distinct, 'อาชีพซ้ำกัน'),
   castingTime: text(60), range: text(60), components: text(120), duration: text(60),
   concentration: z.boolean(), ritual: z.boolean(), save: AbilityZ.nullable(), attack: z.boolean(),
   damage: dice.nullable(), damageType: optText(40), desc: text(4000), higher: optText(2000),
@@ -126,7 +128,7 @@ export function toSrdBackground(key: string, d: HbBackground, featName: string):
     { id: 'B', items: [], gp: d.gold },
   ];
   return {
-    key, name: d.name, abilities: [...d.abilities], feat: featName, skills: [...d.skills],
+    key, name: d.name, abilities: [...d.abilities], feat: featName, featKey: d.feat, skills: [...d.skills],
     tool: [...fixed, ...(choose ? [`${choose.label} ×${choose.count}`] : [])].join(', '),
     equipment: [...d.gear.map((g) => `${g.name} ×${g.qty}`), `${d.gearGold} GP`].join(', '),
     tools: { fixed, choose }, equipmentOptions: options,

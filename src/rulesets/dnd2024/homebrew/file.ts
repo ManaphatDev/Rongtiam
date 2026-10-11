@@ -9,7 +9,8 @@ export const MAX_FILE_BYTES = 1_000_000;
 
 type Row = { kind: string; key: string; data: Record<string, unknown> };
 export interface HbFileItem { kind: string; key: string; data: Record<string, unknown> }
-export interface HbFile { format: typeof HB_FORMAT; ruleset: 'dnd2024'; schemaVersion: 1; items: HbFileItem[] }
+/** `items` are as the file had them: planImport decides which are well formed. */
+export interface HbFile { format: typeof HB_FORMAT; ruleset: 'dnd2024'; schemaVersion: 1; items: unknown[] }
 export interface ImportPlan { add: HbFileItem[]; replace: HbFileItem[]; skip: { kind: string; key: string; reason: string }[] }
 
 export class HbFileError extends Error {}
@@ -31,17 +32,31 @@ export function fromHbText(text: string): HbFile {
   }
   if (!isObject(f) || f.format !== HB_FORMAT) throw new HbFileError('ไฟล์นี้ไม่ใช่ไฟล์ homebrew');
   if (f.ruleset !== 'dnd2024') throw new HbFileError('ไฟล์นี้เป็น homebrew ของระบบกฎอื่น');
+  if (f.schemaVersion !== 1) throw new HbFileError('ไฟล์ homebrew รุ่นนี้ยังไม่รองรับ');
   if (!Array.isArray(f.items)) throw new HbFileError('ไฟล์ homebrew ไม่มีรายการของ');
-  const items = f.items.filter((i): i is HbFileItem =>
-    isObject(i) && typeof i.kind === 'string' && typeof i.key === 'string' && isObject(i.data));
-  return { format: HB_FORMAT, ruleset: 'dnd2024', schemaVersion: 1, items };
+  return { format: HB_FORMAT, ruleset: 'dnd2024', schemaVersion: 1, items: f.items };
 }
 
 /** What importing would do. A background's feat may come from the room or from the same file. */
 export function planImport(file: HbFile, base: Srd, content: Row[]): ImportPlan {
   const plan: ImportPlan = { add: [], replace: [], skip: [] };
   const valid: HbFileItem[] = [];
-  for (const i of file.items) {
+  const wellFormed = (i: unknown): i is HbFileItem =>
+    isObject(i) && typeof i.kind === 'string' && typeof i.key === 'string' && isObject(i.data);
+  const id = (i: HbFileItem) => `${i.kind}/${i.key}`;
+  // A kind/key repeated within the file keeps its last occurrence.
+  const lastAt = new Map<string, number>();
+  file.items.forEach((i, n) => { if (wellFormed(i)) lastAt.set(id(i), n); });
+  for (const [n, i] of file.items.entries()) {
+    if (!wellFormed(i)) {
+      const o = isObject(i) ? i : {};
+      plan.skip.push({ kind: typeof o.kind === 'string' ? o.kind : '', key: typeof o.key === 'string' ? o.key : '', reason: 'รายการในไฟล์ไม่ถูกรูปแบบ' });
+      continue;
+    }
+    if (lastAt.get(id(i)) !== n) {
+      plan.skip.push({ kind: i.kind, key: i.key, reason: 'ซ้ำในไฟล์' });
+      continue;
+    }
     const kind = kindOfRow(i.kind);
     if (!kind) plan.skip.push({ kind: i.kind, key: i.key, reason: 'ไม่รู้จักชนิดนี้' });
     else if (!HB_KEY.test(i.key)) plan.skip.push({ kind: i.kind, key: i.key, reason: 'key ไม่ถูกรูปแบบ' });

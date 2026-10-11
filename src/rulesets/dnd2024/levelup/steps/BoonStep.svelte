@@ -1,6 +1,7 @@
 <script lang="ts">
   import Pick from '../../builder/steps/Pick.svelte';
   import type { Srd } from '../../data/schema';
+import { hbLabel } from '../../homebrew/kinds';
   import { ABILITY_TH, type Ability } from '../../i18n/th';
   import type { D2024 } from '../../model';
   import type { LevelDraft } from '../draft';
@@ -10,7 +11,7 @@
   let { draft = $bindable(), c, srd }: { draft: LevelDraft; c: D2024; srd: Srd } = $props();
 
   const boons = $derived(epicBoons(srd).map((f) => ({
-    id: f.key, label: f.name, hint: f.prerequisite ?? undefined,
+    id: f.key, label: hbLabel(f.key, f.name), hint: f.prerequisite ?? undefined,
     disabled: !meetsPrerequisite(f.prerequisite, c.level + 1, c.abilities, isCaster(c, srd)) || c.feats.includes(f.key),
   })));
   const chosen = $derived(srd.feats.find((f) => f.key === draft.boon?.key));

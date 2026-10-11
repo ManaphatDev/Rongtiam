@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Srd } from '../../data/schema';
-  import { isHomebrew } from '../../homebrew/kinds';
+  import { hbLabel } from '../../homebrew/kinds';
   import type { Draft } from '../draft';
   import { cantripTarget, classOf, classRulesOf, classSpells, spellTarget } from '../helpers';
   import PickMany from './PickMany.svelte';
@@ -15,12 +15,12 @@
 
 {#if cls}
   {#if cantrips > 0}
-    <PickMany legend="แคนทริป" options={classSpells(draft, srd, 0).map((s) => ({ id: s.key, label: isHomebrew(s.key) ? `${s.name} · homebrew` : s.name, hint: s.school }))}
+    <PickMany legend="แคนทริป" options={classSpells(draft, srd, 0).map((s) => ({ id: s.key, label: hbLabel(s.key, s.name), hint: s.school }))}
       selected={draft.cantrips} max={cantrips} onchange={(v) => (draft.cantrips = v)} />
   {/if}
   {#if spells > 0}
     <PickMany legend={book ? 'เวทเลเวล 1 ในสมุดเวท' : 'เวทเลเวล 1'}
-      options={classSpells(draft, srd, 1).map((s) => ({ id: s.key, label: isHomebrew(s.key) ? `${s.name} · homebrew` : s.name, hint: s.school }))}
+      options={classSpells(draft, srd, 1).map((s) => ({ id: s.key, label: hbLabel(s.key, s.name), hint: s.school }))}
       selected={draft.spells} max={spells} onchange={(v) => (draft.spells = v)} />
   {/if}
 {/if}

@@ -1,7 +1,7 @@
 <script lang="ts">
   // What an Origin feat asks the player to decide: Magic Initiate's spell list and spells, Skilled's skills.
   import type { Srd } from '../../data/schema';
-  import { isHomebrew } from '../../homebrew/kinds';
+  import { hbLabel } from '../../homebrew/kinds';
   import { CLASSES_TH, SKILLS, type Skill } from '../../i18n/th';
   import type { FeatPicks } from '../draft';
   import { FEAT_LISTS, listSpells, type FeatList, type FeatRef } from '../helpers';
@@ -26,9 +26,9 @@
       onpick={(id) => (picks = { list: id as FeatList, cantrips: [], spell: null, skills: [] })} />
   {/if}
   {#if list}
-    <PickMany legend="Magic Initiate: แคนทริป" options={listSpells(list, 0, srd).map((s) => ({ id: s.key, label: isHomebrew(s.key) ? `${s.name} · homebrew` : s.name }))}
+    <PickMany legend="Magic Initiate: แคนทริป" options={listSpells(list, 0, srd).map((s) => ({ id: s.key, label: hbLabel(s.key, s.name) }))}
       selected={picks.cantrips} max={2} onchange={(v) => (picks.cantrips = v)} />
-    <Pick legend="Magic Initiate: เวทเลเวล 1" options={listSpells(list, 1, srd).map((s) => ({ id: s.key, label: isHomebrew(s.key) ? `${s.name} · homebrew` : s.name }))}
+    <Pick legend="Magic Initiate: เวทเลเวล 1" options={listSpells(list, 1, srd).map((s) => ({ id: s.key, label: hbLabel(s.key, s.name) }))}
       value={picks.spell} onpick={(id) => (picks.spell = id)} />
   {/if}
 {:else if feat.key === 'skilled'}

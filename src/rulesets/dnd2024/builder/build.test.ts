@@ -231,4 +231,32 @@ describe('build: homebrew species and background', () => {
     expect(c.tools).toContain("Navigator's Tools");
     expect(c.features).toContain('Gills');
   });
+
+  const bgData = (name: string, feat: string) => ({
+    name, abilities: ['str', 'dex', 'wis'], feat, skills: ['athletics', 'perception'],
+    toolsFixed: [], toolsChooseCount: 0, toolsChooseLabel: null, gear: [{ name: 'Rope', qty: 1 }], gearGold: 10, gold: 50,
+  });
+  const originFeat = (name: string) => ({ name, type: 'origin', prerequisite: null, desc: 'Shine.', repeatable: false, boostAbilities: [], boostMax: 20 });
+
+  it('an Origin feat whose name has a parenthesis still builds (the background keeps the feat key)', () => {
+    const r = merge(srd, [
+      { kind: 'hb-feat', key: 'hb-sea-luck', data: originFeat('Sea Luck (Minor)') },
+      { kind: 'hb-background', key: 'hb-deckhand', data: bgData('Deckhand', 'hb-sea-luck') },
+    ]).srd;
+    const d = autoDraft(r, 'fighter', 'hb-deckhand', 'human');
+    expect(validate(d, r)).toEqual([]);
+    expect(build(d, r).feats).toContain('hb-sea-luck');
+  });
+
+  it('a homebrew Origin feat named like an SRD feat is the one the character gets', () => {
+    const r = merge(srd, [
+      { kind: 'hb-feat', key: 'hb-alert', data: originFeat('Alert') },
+      { kind: 'hb-background', key: 'hb-lookout', data: bgData('Lookout', 'hb-alert') },
+    ]).srd;
+    const d = autoDraft(r, 'fighter', 'hb-lookout', 'elf');
+    expect(validate(d, r)).toEqual([]);
+    const feats = build(d, r).feats;
+    expect(feats).toContain('hb-alert');
+    expect(feats).not.toContain('alert');
+  });
 });

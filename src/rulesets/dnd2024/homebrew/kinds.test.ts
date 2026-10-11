@@ -82,6 +82,7 @@ describe('homebrew kinds', () => {
     expect(HB_SCHEMAS.spell.safeParse(spell).success).toBe(true);
     expect(HB_SCHEMAS.spell.safeParse({ ...spell, classes: ['Wizard'] }).success).toBe(false);
     expect(HB_SCHEMAS.spell.safeParse({ ...spell, classes: [''] }).success).toBe(false);
+    expect(HB_SCHEMAS.spell.safeParse({ ...spell, classes: [] }).success).toBe(false);
     const s = toSrdSpell('hb-fire-bolt-plus', HB_SCHEMAS.spell.parse(spell));
     expect(s).toMatchObject({ key: 'hb-fire-bolt-plus', classes: ['wizard'], damageTypes: ['fire'] });
     expect(SrdZ.shape.spells.element.safeParse(s).success).toBe(true);

@@ -63,6 +63,8 @@ export const BackgroundZ = z.object({
   name: z.string(),
   abilities: z.array(AbilityZ).length(3),
   feat: z.string(),
+  /** The Origin feat's key when the background names it by key (homebrew); SRD backgrounds name it in `feat` text only. */
+  featKey: z.string().optional(),
   skills: z.array(z.string()).length(2),
   tool: z.string(),
   equipment: z.string(),

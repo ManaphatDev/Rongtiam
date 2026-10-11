@@ -25,6 +25,32 @@ describe('homebrew file', () => {
     expect(() => fromHbText('x'.repeat(MAX_FILE_BYTES + 1))).toThrow('ไฟล์ใหญ่เกิน 1 MB');
   });
 
+  it('refuses a file of another schema version', () => {
+    for (const schemaVersion of [2, 0, '1', undefined]) {
+      expect(() => fromHbText(JSON.stringify({ format: 'tabletop-homebrew', ruleset: 'dnd2024', schemaVersion, items: [] })))
+        .toThrow('ไฟล์ homebrew รุ่นนี้ยังไม่รองรับ');
+    }
+  });
+
+  it('lists malformed items and repeated kind/key as skipped, keeping the last repeat', () => {
+    const file = fromHbText(JSON.stringify({
+      format: 'tabletop-homebrew', ruleset: 'dnd2024', schemaVersion: 1,
+      items: [
+        item('hb-ring', 'First'), 42, { kind: 7, key: 'hb-x', data: {} }, { kind: 'hb-item', key: 'hb-y', data: 'nope' },
+        { kind: 'hb-item', key: 'hb-z', data: [] }, item('hb-ring', 'Second'), item('hb-cape'),
+      ],
+    }));
+    const plan = planImport(file, srd, []);
+    expect(plan.add).toEqual([item('hb-ring', 'Second'), item('hb-cape')]);
+    expect(plan.skip).toEqual([
+      { kind: 'hb-item', key: 'hb-ring', reason: 'ซ้ำในไฟล์' },
+      { kind: '', key: '', reason: 'รายการในไฟล์ไม่ถูกรูปแบบ' },
+      { kind: '', key: 'hb-x', reason: 'รายการในไฟล์ไม่ถูกรูปแบบ' },
+      { kind: 'hb-item', key: 'hb-y', reason: 'รายการในไฟล์ไม่ถูกรูปแบบ' },
+      { kind: 'hb-item', key: 'hb-z', reason: 'รายการในไฟล์ไม่ถูกรูปแบบ' },
+    ]);
+  });
+
   it('plans adds, replacements and skips; a background may use a feat from the same file', () => {
     const file = {
       format: 'tabletop-homebrew' as const, ruleset: 'dnd2024' as const, schemaVersion: 1 as const,

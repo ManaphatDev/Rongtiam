@@ -6,9 +6,7 @@
 |---|---|
 | กลาง | fields.ts |
 | ขนาด | fields.ts |
-| ของห้อง | HomebrewEditor.svelte |
 | ข้อมูลเสีย | HomebrewEditor.svelte |
-| ครบ … | HomebrewEditor.svelte |
 | ความเร็ว (ฟุต) | fields.ts |
 | คำอธิบาย | fields.ts |
 | คุณสมบัติ | fields.ts |
@@ -17,26 +15,20 @@
 | ค่าพลังซ้ำกัน | kinds.ts |
 | ค่าพลังที่ feat นี้เพิ่ม +1 (ไม่เลือก = ไม่เพิ่ม) | fields.ts |
 | จัดการ homebrew | HomebrewEditor.svelte, SheetsSection.svelte |
-| จาก … | HomebrewEditor.svelte |
 | จำนวน | fields.ts |
 | ฉากหลัง | BackgroundStep.svelte, fields.ts |
 | ชนิด | HomebrewEditor.svelte |
 | ชนิดดาเมจ | fields.ts |
-| ชิ้น | HomebrewEditor.svelte |
-| ชิ้นแล้ว ลบชิ้นที่ไม่ใช้ก่อน | HomebrewEditor.svelte |
 | ชื่อ | fields.ts |
 | ชื่อของ | fields.ts |
 | ชื่อลักษณะ | fields.ts |
 | ชื่อเครื่องมือ | fields.ts |
 | ชุด B: ทองอย่างเดียว (GP) | fields.ts |
-| ซ้ำ) · ข้าม | HomebrewEditor.svelte |
-| ตัวอักษร | kinds.ts |
 | ต้องขึ้นต้นด้วย hb- และมีแต่ a-z 0-9 - | merge.ts |
 | ต้องตั้งสมาธิ (Concentration) | fields.ts |
 | ต้องมีพละกำลังอย่างน้อย | fields.ts |
 | ทองในชุด A (GP) | fields.ts |
 | ทอยโจมตีด้วยเวท | fields.ts |
-| นำเข้าแล้ว … | HomebrewEditor.svelte |
 | นำเข้าไฟล์ | HomebrewEditor.svelte |
 | บวกความว่องไวได้ไม่เกิน | fields.ts |
 | บวกค่าความว่องไว | fields.ts |
@@ -45,8 +37,6 @@
 | บันทึกไม่สำเร็จ ลองอีกครั้ง | HomebrewEditor.svelte |
 | ประเภท | fields.ts |
 | ปิด | HomebrewEditor.svelte |
-| พื้นฐาน | fields.ts |
-| มี… | HomebrewEditor.svelte |
 | ยกเลิก | HomebrewEditor.svelte |
 | ยังไม่มี | HomebrewEditor.svelte |
 | ยาวได้ไม่เกิน 20 ตัวอักษร | kinds.ts |
@@ -61,7 +51,6 @@
 | ร่ายแบบพิธีกรรมได้ (Ritual) | fields.ts |
 | ลบ | HomebrewEditor.svelte |
 | ลบ (ตัวละคร … ตัวใช้อยู่) | HomebrewEditor.svelte |
-| ลักษณะของเผ่า | fields.ts |
 | สกิล 2 อย่าง | fields.ts |
 | สกิลไม่ถูกต้อง | kinds.ts |
 | สำนัก | fields.ts |
@@ -70,7 +59,6 @@
 | หนัก | fields.ts |
 | หมวด | fields.ts |
 | อยู่ในรายชื่อเวทของอาชีพ | fields.ts |
-| ออก | Sheet.svelte |
 | อาชีพซ้ำกัน | kinds.ts |
 | อาวุธ | fields.ts |
 | อาวุธ Simple (ไม่ติ๊ก = Martial) | fields.ts |
@@ -111,7 +99,6 @@
 | เวทเลเวล 1 | FeatPicks.svelte |
 | เวลาร่าย | fields.ts |
 | เสียเปรียบ Stealth | fields.ts |
-| เอา … | Sheet.svelte |
 | เอาออก | HbForm.svelte |
 | แก้ | HomebrewEditor.svelte |
 | แก้… | HomebrewEditor.svelte |
@@ -128,11 +115,28 @@
 | ไฟล์นี้เป็น homebrew ของระบบกฎอื่น | file.ts |
 | ไฟล์นี้ไม่ใช่ไฟล์ homebrew | file.ts |
 | ไฟล์ใหญ่เกิน 1 MB | HomebrewEditor.svelte, file.ts |
-| ไม่ถูกรูปแบบ | file.ts |
-| ไม่น้อยกว่า … | kinds.ts |
 | ไม่พบ (ถูกลบจาก homebrew) | Sheet.svelte |
-| ไม่พบ Origin feat | merge.ts |
-| ไม่มีชื่อ) | HomebrewEditor.svelte |
 | ไม่รู้จักชนิดนี้ | file.ts, merge.ts |
+| เพิ่ม … · แทนที่ … (key ซ้ำ) · ข้าม … | HomebrewEditor.svelte |
+| (ไม่มีชื่อ) | HomebrewEditor.svelte |
+| มี…ครบ … ชิ้นแล้ว ลบชิ้นที่ไม่ใช้ก่อน | HomebrewEditor.svelte |
+| นำเข้าแล้ว … จาก … ชิ้น | HomebrewEditor.svelte |
+| Homebrew ของห้อง | HomebrewEditor.svelte |
+| ยังไม่มี…ของห้อง | HomebrewEditor.svelte |
+| แก้ช่องที่ผิดก่อนบันทึก | HomebrewEditor.svelte |
+| AC พื้นฐาน | fields.ts |
+| (… · ส่วนตัว) | Sheet.svelte |
+| (… · ของห้อง) | Sheet.svelte |
+| ไม่น้อยกว่า … | kinds.ts |
 | ไม่เกิน … | kinds.ts |
+| เอา … ออก | Sheet.svelte |
+| key ไม่ถูกรูปแบบ | file.ts |
+| ไม่พบ Origin feat "…" | merge.ts |
+| ลักษณะของเผ่า | SpeciesStep.svelte, fields.ts |
+| ลักษณะของเผ่า (ข้อความจาก SRD) | SpeciesStep.svelte |
+| … · homebrew | kinds.ts |
+| เลือกอาชีพอย่างน้อย 1 อาชีพ | kinds.ts |
+| ไฟล์ homebrew รุ่นนี้ยังไม่รองรับ | file.ts |
+| รายการในไฟล์ไม่ถูกรูปแบบ | file.ts |
+| ซ้ำในไฟล์ | file.ts |
 | ไอเทม | fields.ts |

@@ -28,13 +28,17 @@ export function featRef(text: string, srd: Srd): FeatRef | null {
 }
 export const backgroundFeat = (d: Draft, srd: Srd) => {
   const bg = backgroundOf(d, srd);
-  return bg ? featRef(bg.feat, srd) : null;
+  if (!bg) return null;
+  if (bg.featKey) {
+    const f = srd.feats.find((x) => x.key === bg.featKey);
+    return f ? { key: f.key, name: f.name, list: null } : null;
+  }
+  return featRef(bg.feat, srd);
 };
 export const speciesFeatRef = (d: Draft, srd: Srd): FeatRef | null => {
   const f = srd.feats.find((x) => x.key === d.speciesFeat);
   return f ? { key: f.key, name: f.name, list: null } : null;
 };
-/** A feat the SRD lets a character take more than once (Magic Initiate with another list, Skilled). */
 /** A feat the rules let a character take more than once: the homebrew field, else the SRD text. */
 export const repeatable = (f: { desc: string; repeatable?: boolean }) =>
   f.repeatable ?? /take this feat more than once/i.test(f.desc);

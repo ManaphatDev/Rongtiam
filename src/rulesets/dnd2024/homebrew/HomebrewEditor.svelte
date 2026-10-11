@@ -54,6 +54,7 @@
     const p = HB_SCHEMAS[tab].safeParse($state.snapshot(editing.data));
     if (!p.success) {
       issues = p.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message }));
+      message = 'แก้ช่องที่ผิดก่อนบันทึก';
       return;
     }
     if (!editing.key && rows.length >= MAX_PER_KIND) {
@@ -63,7 +64,9 @@
     if (busy) return;
     busy = true;
     try {
-      const key = editing.key ?? slugKey(String(p.data.name), rows.map((r) => r.key));
+      // Keys are unique across every kind, so a key alone says which entry a character uses.
+      const taken = [...store.state.content.rows.values()].filter((r) => r.kind.startsWith('hb-')).map((r) => r.key);
+      const key = editing.key ?? slugKey(String(p.data.name), taken);
       if (await store.saveContent(rowKind(tab), key, p.data as Record<string, unknown>)) {
         editing = null;
         message = 'บันทึกแล้ว';

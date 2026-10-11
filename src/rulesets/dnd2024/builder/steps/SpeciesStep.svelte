@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Srd } from '../../data/schema';
-  import { isHomebrew } from '../../homebrew/kinds';
+  import { hbLabel, isHomebrew } from '../../homebrew/kinds';
   import { SKILLS, SPECIES_TH, type Skill } from '../../i18n/th';
   import { emptyPicks, type Draft } from '../draft';
   import { backgroundFeat, originFeats, repeatable, skillSources, speciesFeatRef, speciesOf, speciesRulesOf } from '../helpers';
@@ -30,13 +30,13 @@
   }
 </script>
 
-<Pick legend="เผ่า" options={srd.species.map((s) => ({ id: s.key, label: isHomebrew(s.key) ? `${s.name} · homebrew` : (SPECIES_TH[s.key] ?? s.name), hint: s.name }))}
+<Pick legend="เผ่า" options={srd.species.map((s) => ({ id: s.key, label: hbLabel(s.key, SPECIES_TH[s.key] ?? s.name), hint: s.name }))}
   value={draft.species} onpick={pickSpecies} />
 
 {#if sp}
   <p class="hint">ขนาด {sp.size} · ความเร็ว {sp.speed} ฟุต</p>
   <details class="block">
-    <summary>ลักษณะของเผ่า (ข้อความจาก SRD)</summary>
+    <summary>{isHomebrew(sp.key) ? 'ลักษณะของเผ่า' : 'ลักษณะของเผ่า (ข้อความจาก SRD)'}</summary>
     {#each sp.traits as t (t.name)}<p><b>{t.name}.</b> {t.desc}</p>{/each}
   </details>
 
@@ -49,7 +49,7 @@
         options={(c.from === 'any' ? Object.keys(SKILLS) : c.from).map((s) => ({ id: s, label: SKILLS[s as Skill].th, disabled: heldBefore.has(s) }))}
         value={draft.speciesSkill} onpick={(s) => (draft.speciesSkill = s)} />
     {:else if c.kind === 'originFeat'}
-      <Pick legend="Origin feat" options={originFeats(srd).map((f) => ({ id: f.key, label: isHomebrew(f.key) ? `${f.name} · homebrew` : f.name, disabled: f.key === bgFeat?.key && !repeatable(f) }))}
+      <Pick legend="Origin feat" options={originFeats(srd).map((f) => ({ id: f.key, label: hbLabel(f.key, f.name), disabled: f.key === bgFeat?.key && !repeatable(f) }))}
         value={draft.speciesFeat} onpick={pickFeat} />
       {#if feat}<FeatPicks {feat} usedList={feat.key === bgFeat?.key ? bgFeat.list : null} bind:picks={draft.speciesFeatPicks} {srd} taken={[...heldBefore, ...src.sp]} />{/if}
     {/if}
