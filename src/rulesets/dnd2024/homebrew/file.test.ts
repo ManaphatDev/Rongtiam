@@ -58,6 +58,25 @@ describe('homebrew file', () => {
     ]);
   });
 
+  it('a background whose Origin feat was cap-skipped is skipped too', () => {
+    const room = Array.from({ length: 199 }, (_, n) => ({ kind: 'hb-feat', key: `hb-r-${String(n).padStart(3, '0')}`, data: feat }));
+    const file = {
+      format: 'tabletop-homebrew' as const, ruleset: 'dnd2024' as const, schemaVersion: 1 as const,
+      items: [
+        { kind: 'hb-feat', key: 'hb-x-feat', data: feat },
+        { kind: 'hb-feat', key: 'hb-b-feat', data: feat },
+        { kind: 'hb-background', key: 'hb-bg', data: { ...bg, feat: 'hb-b-feat' } },
+      ],
+    };
+    const plan = planImport(file, srd, room);
+    expect(plan.add.map((i) => i.key)).toEqual(['hb-x-feat']);
+    expect(plan.replace).toEqual([]);
+    expect(plan.skip).toEqual([
+      { kind: 'hb-feat', key: 'hb-b-feat', reason: 'เกิน 200 ชิ้นต่อชนิด' },
+      { kind: 'hb-background', key: 'hb-bg', reason: 'อ้างถึงของที่ไม่มี (เช่น Origin feat)' },
+    ]);
+  });
+
   it('a replacement at the cap is still a replacement', () => {
     const room = Array.from({ length: 200 }, (_, n) => item(`hb-old-${n}`));
     const file = {

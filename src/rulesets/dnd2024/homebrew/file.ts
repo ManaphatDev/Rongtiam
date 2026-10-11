@@ -51,21 +51,27 @@ export function planImport(file: HbFile, base: Srd, content: Row[]): ImportPlan 
       else plan.skip.push({ kind: i.kind, key: i.key, reason: issuesOf(p.error).join('; ') });
     }
   }
-  // Merge the room and the valid file items together to see which backgrounds resolve their feat.
-  const byKey = new Map(content.filter((r) => r.kind.startsWith('hb-')).map((r) => [`${r.kind}/${r.key}`, r]));
-  for (const i of valid) byKey.set(`${i.kind}/${i.key}`, { ...i, data: { ...i.data } });
-  const broken = new Set(merge(base, [...byKey.values()]).broken.map((b) => `${b.kind}/${b.key}`));
-  // Each kind holds at most MAX_PER_KIND entries; a replacement keeps the count, an add takes a slot.
+  // Each kind holds at most MAX_PER_KIND entries: a replacement keeps the count, an add takes a slot.
   const count = new Map<string, number>();
   for (const r of content) if (r.kind.startsWith('hb-')) count.set(r.kind, (count.get(r.kind) ?? 0) + 1);
   for (const i of valid) {
-    if (broken.has(`${i.kind}/${i.key}`)) plan.skip.push({ kind: i.kind, key: i.key, reason: 'อ้างถึงของที่ไม่มี (เช่น Origin feat)' });
-    else if (content.some((r) => r.kind === i.kind && r.key === i.key)) plan.replace.push(i);
+    if (content.some((r) => r.kind === i.kind && r.key === i.key)) plan.replace.push(i);
     else if ((count.get(i.kind) ?? 0) >= MAX_PER_KIND) plan.skip.push({ kind: i.kind, key: i.key, reason: 'เกิน 200 ชิ้นต่อชนิด' });
     else {
       count.set(i.kind, (count.get(i.kind) ?? 0) + 1);
       plan.add.push(i);
     }
   }
+  // Reference check last, on the room plus what would be accepted: a background whose Origin feat was cap-skipped is not added.
+  const byKey = new Map(content.filter((r) => r.kind.startsWith('hb-')).map((r) => [`${r.kind}/${r.key}`, r]));
+  for (const i of [...plan.add, ...plan.replace]) byKey.set(`${i.kind}/${i.key}`, { ...i, data: { ...i.data } });
+  const broken = new Set(merge(base, [...byKey.values()]).broken.map((b) => `${b.kind}/${b.key}`));
+  const unbroken = (list: HbFileItem[]) => list.filter((i) => {
+    if (!broken.has(`${i.kind}/${i.key}`)) return true;
+    plan.skip.push({ kind: i.kind, key: i.key, reason: 'อ้างถึงของที่ไม่มี (เช่น Origin feat)' });
+    return false;
+  });
+  plan.add = unbroken(plan.add);
+  plan.replace = unbroken(plan.replace);
   return plan;
 }
