@@ -53,14 +53,16 @@
     const row = await store.createCharacter({ ruleset, data });
     if (!row) return false;
     ui.builderOpen = false;
-    ui.sheetOpen = row.id;
+    if (Number(row.data.levelAllowed ?? 1) > 1 && host.module(ruleset)?.LevelUp) ui.levelUpOpen = row.id;
+    else ui.sheetOpen = row.id;
     return true;
   }
 </script>
 
 {#if ui.builderOpen}
   {#if Builder}
-    <Builder ctx={host.ctx} roomId={store.state.room?.id ?? 'local'} {rollDice} onDone={done} onClose={() => (ui.builderOpen = false)} />
+    <Builder ctx={host.ctx} roomId={store.state.room?.id ?? 'local'} {rollDice} onDone={done} onClose={() => (ui.builderOpen = false)}
+      maxStartLevel={store.isGM ? 20 : Math.max(1, Number(store.settings.startLevel ?? 1))} />
   {:else}
     <section class="sheet-panel overlay-ui" aria-label="ตัวช่วยสร้างตัวละคร">
       <div class="sheet-body">

@@ -21,7 +21,7 @@
   import SpellsStep from './steps/SpellsStep.svelte';
   import { validate, type StepId } from './validate';
 
-  let { roomId, rollDice, onDone, onClose }: BuilderProps = $props();
+  let { roomId, rollDice, onDone, onClose, maxStartLevel }: BuilderProps = $props();
 
   const srd = getSrd();
   // The room never changes while this panel is mounted, so the draft is loaded once, from the first roomId.
@@ -98,7 +98,9 @@
     error = '';
     const id = roomId;
     try {
-      const data = build($state.snapshot(draft) as Draft, srd) as unknown as Record<string, unknown>;
+      const d = $state.snapshot(draft) as Draft;
+      d.startLevel = Math.min(d.startLevel, maxStartLevel);
+      const data = build(d, srd) as unknown as Record<string, unknown>;
       if (await onDone(data)) clearDraft(id);
     } catch (e) {
       error = (e as Error).message;
@@ -149,7 +151,7 @@
       {:else if current === 'scores'}<ScoresStep bind:draft {srd} {rolling} onroll={rollScores} />
       {:else if current === 'equipment'}<EquipmentStep bind:draft {srd} />
       {:else if current === 'spells'}<SpellsStep bind:draft {srd} />
-      {:else if current === 'details'}<DetailsStep bind:draft />
+      {:else if current === 'details'}<DetailsStep bind:draft {maxStartLevel} />
       {:else}<ReviewStep {draft} {srd} onjump={jump} />
       {/if}
       {#if mine.length}

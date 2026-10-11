@@ -71,6 +71,8 @@ export interface RoomSettings {
   snap: boolean;
   /** Whose turn it is (an initiative entry id) and the round number. */
   initiative?: { round: number; current: string | null };
+  /** D&D rooms: the highest level a player may create a character at (default 1). */
+  startLevel?: number;
   [k: string]: unknown;
 }
 

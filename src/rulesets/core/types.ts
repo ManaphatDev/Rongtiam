@@ -39,6 +39,8 @@ export interface SheetProps {
   /** Field-level edit: path inside `data`, the new value (null removes), and how long to wait for more typing. */
   patch: (path: (string | number)[], value: unknown, delay?: number) => void;
   roll: (label: string, expr: string) => void;
+  /** Opens the level-up wizard for this character, when the system has one. */
+  onLevelUp?: () => void;
 }
 
 /** What a ruleset's character builder is given by the table. */
@@ -52,6 +54,8 @@ export interface BuilderProps {
   /** Creates the character. True when it was made: the builder then forgets its draft and the panel closes. */
   onDone: (data: Record<string, unknown>) => Promise<boolean>;
   onClose: () => void;
+  /** The highest level this viewer may start a character at (the room's start level, or 20 for a GM). */
+  maxStartLevel: number;
 }
 
 /** What a ruleset's level-up wizard is given by the table. It is mounted again for each level. */

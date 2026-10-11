@@ -62,6 +62,15 @@
       } catch {
         throw new ImportError('ข้อมูลในไฟล์ไม่ตรงกับระบบกฎของไฟล์');
       }
+      // The database refuses a player's character above the room's start level; say so in Thai before trying.
+      if (!store.isGM && file.ruleset === 'dnd2024') {
+        const start = Math.max(1, Number(store.settings.startLevel ?? 1));
+        const lv = Number(data.level ?? 1);
+        if (lv > start) {
+          throw new ImportError(`ไฟล์นี้เป็นตัวละครเลเวล ${lv} แต่ห้องนี้ให้ผู้เล่นเริ่มได้ไม่เกินเลเวล ${start} ให้ GM นำเข้าแทน หรือขอให้ GM เพิ่มเลเวลเริ่มต้นของห้อง`);
+        }
+        data = { ...data, levelAllowed: null };
+      }
       const row = await store.createCharacter({ ruleset: file.ruleset, data });
       if (row) ui.sheetOpen = row.id;
     } catch (e) {
@@ -79,6 +88,11 @@
         {#each RULESETS as r (r.id)}<option value={r.id}>{r.name}</option>{/each}
       </select>
     </label>
+    {#if ruleset === 'dnd2024'}
+      <label class="field narrow">เลเวลเริ่มต้นของห้อง<input type="number" min="1" max="20" value={store.settings.startLevel ?? 1}
+        onchange={(e) => void store.updateSettings({ ...store.settings, startLevel: Math.max(1, Math.min(20, Math.round(Number(e.currentTarget.value)) || 1)) })} /></label>
+      <p class="hint">ผู้เล่นสร้างหรือนำเข้าตัวละครได้ไม่เกินเลเวลนี้</p>
+    {/if}
   {/if}
 
   {#if ruleset === 'dnd2024' && store.isGM}

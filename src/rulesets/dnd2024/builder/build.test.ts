@@ -198,3 +198,14 @@ describe('build: every combination', () => {
     }
   }, 60_000);
 });
+
+describe('build: start level', () => {
+  it('a draft that starts above level 1 is built at 1 with the allowance set', () => {
+    const d = autoDraft(srd, 'fighter', 'soldier', 'human');
+    expect(build(d, srd).levelAllowed).toBeNull();
+    d.startLevel = 5;
+    const c = build(d, srd);
+    expect(c.level).toBe(1);
+    expect(c.levelAllowed).toBe(5);
+  });
+});

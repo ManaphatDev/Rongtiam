@@ -89,6 +89,7 @@ export function build(d: Draft, srd: Srd): D2024 {
     name: d.name.trim(),
     classKey: cls.key,
     level: 1,
+    levelAllowed: d.startLevel > 1 ? d.startLevel : null,
     species: d.species,
     background: bg.key,
     abilities: finalAbilities(d, srd),

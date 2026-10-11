@@ -4,7 +4,7 @@
   import { roomSkillsOf } from './roomSkills';
   import { ABILITIES, ABILITY_TH, BACKGROUNDS_TH, CLASSES_TH, SKILLS, SPECIES_TH, type Skill } from './i18n/th';
 
-  let { data, ctx, editable, isGM, patch, roll }: SheetProps = $props();
+  let { data, ctx, editable, isGM, patch, roll, onLevelUp }: SheetProps = $props();
 
   const srd = getSrd();
   const v = $derived(viewOf(data, ctx));
@@ -60,8 +60,15 @@
         {#each cls.subclasses as s (s.key)}<option value={s.key}>{s.name}</option>{/each}
       </select></label>
     {/if}
-    <label class="field narrow">เลเวล<input type="number" min="1" max="20" value={c.level} disabled={!editable}
+    <label class="field narrow">เลเวล<input type="number" min="1" max="20" value={c.level} disabled={!editable || !isGM}
+      title={isGM ? undefined : 'ขึ้นเลเวลผ่านปุ่ม "ขึ้นเลเวล" เมื่อ GM อนุญาต'}
       onchange={(e) => patch(['level'], int(e, 1, 20))} /></label>
+    {#if isGM && editable}
+      <label class="field narrow">เลเวลที่อนุญาต<input type="number" min={c.level} max="20" value={c.levelAllowed ?? c.level}
+        onchange={(e) => patch(['levelAllowed'], int(e, c.level, 20))} /></label>
+      <button class="btn small" type="button" disabled={(c.levelAllowed ?? c.level) >= 20}
+        onclick={() => patch(['levelAllowed'], Math.min(20, (c.levelAllowed ?? c.level) + 1))}>อนุญาต +1</button>
+    {/if}
     <label class="field">เผ่า<select aria-label="เผ่า" value={c.species} disabled={!editable} onchange={(e) => patch(['species'], e.currentTarget.value)}>
       {#each srd.species as s (s.key)}<option value={s.key}>{SPECIES_TH[s.key] ?? s.name}</option>{/each}
     </select></label>
@@ -69,6 +76,13 @@
       {#each srd.backgrounds as b (b.key)}<option value={b.key}>{BACKGROUNDS_TH[b.key] ?? b.name}</option>{/each}
     </select></label>
   </section>
+
+  {#if onLevelUp && editable && c.level < 20 && (isGM || (c.levelAllowed ?? c.level) > c.level)}
+    <div class="row level-up">
+      {#if (c.levelAllowed ?? c.level) > c.level}<span class="hint">ขึ้นเลเวลได้ (ถึงเลเวล {c.levelAllowed})</span>{/if}
+      <button class="btn primary small" type="button" onclick={onLevelUp}>ขึ้นเลเวล</button>
+    </div>
+  {/if}
 
   <section class="stat-row" aria-label="ค่าการต่อสู้">
     <div class="stat"><span>AC</span><b>{d.ac}</b></div>
