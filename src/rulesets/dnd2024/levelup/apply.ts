@@ -4,10 +4,11 @@
 import type { CharOp } from '../../../sync/types';
 import type { Srd } from '../data/schema';
 import { derive } from '../derive';
-import { ABILITY_TH, SKILLS, type Skill } from '../i18n/th';
+import { ABILITY_TH, SKILLS, type Ability, type Skill } from '../i18n/th';
 import type { D2024 } from '../model';
 import type { LevelDraft } from './draft';
-import { classOfChar, pastLevels, pointsAt, label } from './steps';
+import { featBoost } from './srdText';
+import { classOfChar, pointsAt, label, rawLevels } from './steps';
 import { validateLevel } from './validate';
 
 export class LevelUpError extends Error {}
@@ -43,6 +44,12 @@ export function appendFeatures(existing: string, full: string, names: string): s
   return (existing + sep + names).slice(0, FEATURES_MAX);
 }
 
+/** The score a feat's +1 goes to: only when that feat raises scores and `ability` is one it may raise. */
+export function boostFor(srd: Srd, featKey: string, ability: Ability | null): Ability | null {
+  const boost = featBoost(srd.feats.find((f) => f.key === featKey)?.desc ?? '');
+  return boost && ability && boost.abilities.includes(ability) ? ability : null;
+}
+
 export function levelUp(c: D2024, d: LevelDraft, srd: Srd, isGM: boolean): D2024 {
   const issues = validateLevel(c, d, srd, isGM);
   if (issues.length) throw new LevelUpError(issues.map((i) => i.message).join('\n'));
@@ -62,17 +69,19 @@ export function levelUp(c: D2024, d: LevelDraft, srd: Srd, isGM: boolean): D2024
     n.feats.push('ability-score-improvement');
   } else if (d.asi?.kind === 'feat' && d.asi.key) {
     n.feats.push(d.asi.key);
-    if (d.asi.ability) n.abilities[d.asi.ability] += 1;
+    const a = boostFor(srd, d.asi.key, d.asi.ability);
+    if (a) n.abilities[a] += 1;
   }
   if (d.boon?.key) {
     n.feats.push(d.boon.key);
-    if (d.boon.ability) n.abilities[d.boon.ability] += 1;
+    const a = boostFor(srd, d.boon.key, d.boon.ability);
+    if (a) n.abilities[a] += 1;
   }
   if (d.fightingStyle) n.feats.push(d.fightingStyle);
   for (const s of d.expertise) n.skills[s as Skill] = 2;
 
   n.features = appendFeatures(c.features, levelText(n, d, srd, level, true), levelText(n, d, srd, level, false));
-  n.choices = { ...c.choices, levels: [...pastLevels(c), d] };
+  n.choices = { ...c.choices, levels: [...rawLevels(c), d] };
 
   // The new hit points arrive unhurt: current HP grows by what max HP grew (a GM override of max HP gives nothing).
   n.hp.current = c.hp.current + Math.max(0, derive(n, srd).maxHp - derive(c, srd).maxHp);

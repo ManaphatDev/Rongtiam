@@ -76,6 +76,9 @@
       {#each srd.backgrounds as b (b.key)}<option value={b.key}>{BACKGROUNDS_TH[b.key] ?? b.name}</option>{/each}
     </select></label>
   </section>
+  {#if !isGM && editable && (c.levelAllowed ?? c.level) <= c.level && c.level < 20}
+    <p class="hint">ขึ้นเลเวลได้เมื่อ GM อนุญาต</p>
+  {/if}
 
   {#if onLevelUp && editable && c.level < 20 && (isGM || (c.levelAllowed ?? c.level) > c.level)}
     <div class="row level-up">

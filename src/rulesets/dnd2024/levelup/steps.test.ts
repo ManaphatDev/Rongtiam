@@ -4,7 +4,9 @@ import { autoDraft } from '../builder/fixtures';
 import { SrdZ } from '../data/schema';
 import raw from '../data/srd.json';
 import { parseCharacter } from '../model';
-import { classPicks, expertisePool, invocationPool, levelSteps, masteryPool, metamagicPool, pastPicks } from './steps';
+import { emptyLevelDraft } from './draft';
+import { levelUp } from './apply';
+import { classPicks, expertisePool, invocationPool, levelSteps, masteryPool, metamagicPool, pastLevels, pastPicks, rawLevels } from './steps';
 
 const srd = SrdZ.parse(raw);
 const made = (k: string) => build(autoDraft(srd, k, 'soldier', 'human'), srd);
@@ -55,5 +57,16 @@ describe('pools', () => {
 
   it('a hand-made sheet with no choices has no past picks', () => {
     expect(pastPicks(parseCharacter({ classKey: 'warlock', level: 4 }))).toEqual({ masteries: [], invocations: [], metamagic: [] });
+  });
+
+  it('one unreadable recorded level keeps the others, and recording a level loses none of them', () => {
+    const good = { ...emptyLevelDraft(2), masteries: ['longsword'], metamagic: ['Careful Spell'] };
+    const junk = { forLevel: 'x' };
+    const c = { ...made('fighter'), choices: { levels: [junk, good] } };
+    expect(pastLevels(c)).toHaveLength(1);
+    expect(pastPicks(c).masteries).toContain('longsword');
+    const next = { ...emptyLevelDraft(3), hp: { method: 'average' as const, rolled: null } };
+    const n = levelUp({ ...c, level: 2 }, next, srd, true);
+    expect(rawLevels(n)).toEqual([junk, good, next]);
   });
 });

@@ -71,11 +71,17 @@ const PastZ = z.object({
       invocations: z.array(z.string()).catch(() => []),
     }).catch(() => ({ masteries: [], invocations: [] })),
   }).optional().catch(undefined),
-  levels: z.array(LevelDraftZ).catch(() => []),
+  // Each entry on its own: one unreadable level must not erase the history of the others.
+  levels: z.array(z.unknown()).catch(() => [] as unknown[]),
 });
-const past = (c: D2024) => PastZ.parse(c.choices ?? {});
+const past = (c: D2024) => {
+  const p = PastZ.parse(c.choices ?? {});
+  return { ...p, levels: p.levels.flatMap((l) => { const r = LevelDraftZ.safeParse(l); return r.success ? [r.data] : []; }) };
+};
 
 export const pastLevels = (c: D2024): LevelDraft[] => past(c).levels;
+/** The recorded levels exactly as stored, unreadable entries included, so recording a new level loses nothing. */
+export const rawLevels = (c: D2024): unknown[] => PastZ.parse(c.choices ?? {}).levels;
 
 export function pastPicks(c: D2024): { masteries: string[]; invocations: string[]; metamagic: string[] } {
   const p = past(c);

@@ -20,9 +20,14 @@
 
   /** The level this visit goes to: what the GM allowed, or one more level when a GM opens it directly. */
   let target = $state(0);
+  let targetFor = '';
   $effect(() => {
-    if (!ui.levelUpOpen) target = 0;
-    else if (c && target === 0) {
+    if (!ui.levelUpOpen) {
+      target = 0;
+      targetFor = '';
+    } else if (c && (target === 0 || targetFor !== ui.levelUpOpen)) {
+      // Opened for another character without closing in between: work out its target afresh.
+      targetFor = ui.levelUpOpen;
       const allowed = Number(c.data.levelAllowed ?? level);
       target = Math.min(20, store.isGM ? Math.max(allowed, level + 1) : allowed);
     }

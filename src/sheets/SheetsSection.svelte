@@ -47,6 +47,7 @@
       return;
     }
     ui.sheetOpen = null;
+    ui.levelUpOpen = null;
     ui.builderOpen = true;
   }
 

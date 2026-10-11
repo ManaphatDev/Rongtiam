@@ -5,7 +5,7 @@ import { SrdZ } from '../data/schema';
 import raw from '../data/srd.json';
 import { derive } from '../derive';
 import { parseCharacter, type D2024 } from '../model';
-import { appendFeatures, diffOps, levelUp, LevelUpError } from './apply';
+import { appendFeatures, boostFor, diffOps, levelUp, LevelUpError } from './apply';
 import { emptyLevelDraft, type LevelDraft } from './draft';
 import { autoLevel } from './fixtures';
 import { pastLevels } from './steps';
@@ -59,6 +59,17 @@ describe('levelUp', () => {
 
   it('refuses an invalid draft', () => {
     expect(() => levelUp(made('fighter'), emptyLevelDraft(2), srd, true)).toThrow(LevelUpError);
+  });
+
+  it('a feat adds +1 to a score only when it raises scores and the score is one it may raise', () => {
+    expect(boostFor(srd, 'alert', 'str')).toBeNull(); // no boost at all
+    expect(boostFor(srd, 'grappler', 'str')).toBe('str');
+    expect(boostFor(srd, 'grappler', 'wis')).toBeNull();
+    expect(boostFor(srd, 'grappler', null)).toBeNull();
+    const c = { ...made('wizard'), level: 3 };
+    c.abilities.dex = 14;
+    const n = levelUp(c, { ...avg(4), asi: { kind: 'feat', key: 'grappler', ability: 'dex' } }, srd, true);
+    expect(n.abilities.dex).toBe(15);
   });
 });
 

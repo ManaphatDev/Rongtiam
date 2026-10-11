@@ -47,6 +47,14 @@ describe('level gate', () => {
     expect(await errCode(patch(alice, c.id, [{ path: ['level'], value: 2 }]))).toBe('42501'); // no going down
   });
 
+  it('a player cannot write a fractional level', async () => {
+    const c = await insert(alice, { name: 'Hero', level: 1 });
+    await patch(gm, c.id, [{ path: ['levelAllowed'], value: 2 }]);
+    expect(await errCode(patch(alice, c.id, [{ path: ['level'], value: 2.5 }]))).toBe('42501');
+    expect(await errCode(insert(alice, { name: 'Odd', level: 1.5 }))).toBe('42501');
+    expect((await patch(alice, c.id, [{ path: ['level'], value: 2 }])).data.level).toBe(2);
+  });
+
   it('a player cannot change the allowance, but may edit everything else', async () => {
     const c = await insert(alice, { name: 'Hero', level: 1 });
     expect(await errCode(patch(alice, c.id, [{ path: ['levelAllowed'], value: 5 }]))).toBe('42501');

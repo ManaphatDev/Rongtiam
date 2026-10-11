@@ -41,14 +41,16 @@
   const steps = levelSteps(c, srd);
   const at = $derived(Math.min(step, steps.length - 1));
   const current = $derived(steps[at]);
-  const all = $derived(validateLevel(c, draft, srd, isGM));
+  // The sheet as it is now (a GM may have changed it since this opened): what the review checks and what confirm applies.
+  const fresh = $derived(parseCharacter(data));
+  const all = $derived(validateLevel(fresh, draft, srd, isGM));
   const mine = $derived(all.filter((i) => i.step === current));
   const con = Math.floor((c.abilities.con - 10) / 2);
 
   $effect(() => {
     // While the dice roll, the stored draft already holds the decided result; the in-memory one doesn't yet.
     if (rolling) return;
-    saveLevelDraft(id, { step, draft: $state.snapshot(draft) as LevelDraft });
+    saveLevelDraft(id, next, { step, draft: $state.snapshot(draft) as LevelDraft });
   });
   $effect(() => {
     panel?.focus();
@@ -81,7 +83,7 @@
         if (!keep(result.total)) return;
         const kept = $state.snapshot(target) as LevelDraft;
         kept.hp = { method: 'roll', rolled: result.total };
-        saveLevelDraft(key, { step: startedOn, draft: kept });
+        saveLevelDraft(key, next, { step: startedOn, draft: kept });
       });
       if (keep(r.total)) target.hp = { method: 'roll', rolled: r.total };
       else error = 'ผลทอยผิดปกติ ลองทอยใหม่';
@@ -96,9 +98,15 @@
   function confirm() {
     error = '';
     try {
-      const n = levelUp(c, $state.snapshot(draft) as LevelDraft, srd, isGM);
-      clearLevelDraft(id);
-      apply(diffOps(c, n));
+      // The character as it is now, so the patches never overwrite what changed since this opened.
+      const now = parseCharacter(data);
+      if (now.level !== c.level) {
+        error = 'ตัวละครเปลี่ยนเลเวลไปแล้ว ปิดแล้วเปิดตัวช่วยใหม่';
+        return;
+      }
+      const n = levelUp(now, $state.snapshot(draft) as LevelDraft, srd, isGM);
+      clearLevelDraft(id, next);
+      apply(diffOps(now, n));
     } catch (e) {
       error = (e as Error).message;
     }
@@ -138,7 +146,7 @@
       {:else if current === 'asi'}<AsiStep bind:draft {c} {srd} />
       {:else if current === 'boon'}<BoonStep bind:draft {c} {srd} />
       {:else if current === 'class'}<ClassPicksStep bind:draft {c} {srd} />
-      {:else}<LevelReview {c} {srd} issues={all} labels={LABELS} onjump={jump} />
+      {:else}<LevelReview c={fresh} {srd} {draft} {isGM} issues={all} labels={LABELS} onjump={jump} />
       {/if}
       {#if mine.length}
         <ul class="builder-issues" aria-live="polite">

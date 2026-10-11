@@ -2,11 +2,12 @@
 -- level (rooms.settings.startLevel, default 1), levels up one step at a time only up to data.levelAllowed, and can
 -- never change levelAllowed. GMs, other rulesets and trusted RPCs (current_user <> 'authenticated') pass.
 
--- A jsonb number as an int, or the fallback for anything else (missing, null, text, out of int range...).
+-- A jsonb number as an int, or the fallback for anything else (missing, null, text, a fraction, out of int range...).
 create or replace function private.json_int(v jsonb, fallback int) returns int
 language sql immutable set search_path = '' as $$
   select case
     when jsonb_typeof(v) <> 'number' then fallback
+    when (v #>> '{}')::numeric <> floor((v #>> '{}')::numeric) then fallback
     when (v #>> '{}')::numeric between -2147483648 and 2147483647 then floor((v #>> '{}')::numeric)::int
     else fallback
   end
@@ -37,6 +38,12 @@ begin
     end if;
   elsif new.ruleset <> 'dnd2024' or private.is_gm(new.room_id) then
     return new;
+  end if;
+  -- A numeric level a player writes must be a whole number: the client cannot read 2.5 and json_int would not see it.
+  if jsonb_typeof(new.data -> 'level') = 'number'
+     and (tg_op = 'INSERT' or (new.data -> 'level') is distinct from (old.data -> 'level'))
+     and private.json_int(new.data -> 'level', null) is null then
+    raise exception 'level must be a whole number' using errcode = '42501';
   end if;
   lv_new := private.json_int(new.data -> 'level', 1);
 
