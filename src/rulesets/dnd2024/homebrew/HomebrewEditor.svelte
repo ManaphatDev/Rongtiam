@@ -7,7 +7,7 @@
   import { BLANK, FIELDS, KIND_LABEL } from './fields';
   import { fromHbText, HbFileError, MAX_FILE_BYTES, planImport, toHbFile, type ImportPlan } from './file';
   import HbForm from './HbForm.svelte';
-  import { HB_KINDS, HB_SCHEMAS, MAX_PER_KIND, rowKind, slugKey, type HbKind } from './kinds';
+  import { HB_KINDS, HB_SCHEMAS, kindOfRow, MAX_PER_KIND, rowKind, slugKey, type HbKind } from './kinds';
   import { brokenRows, srdFor } from './merge';
   import { getSrd } from '../index';
   import { usageCount } from './usage';
@@ -19,6 +19,8 @@
   let editing = $state<{ id: string | null; key: string | null; data: Record<string, unknown> } | null>(null);
   let issues = $state<{ path: string; message: string }[]>([]);
   let message = $state('');
+  /** A save or import is in flight: the buttons wait so a double click can't write twice. */
+  let busy = $state(false);
   let plan = $state<{ plan: ImportPlan; items: ImportPlan['add'] } | null>(null);
   let fileInput = $state<HTMLInputElement>();
   let panel = $state<HTMLElement>();
@@ -58,10 +60,17 @@
       message = `มี${KIND_LABEL[tab]}ครบ ${MAX_PER_KIND} ชิ้นแล้ว ลบชิ้นที่ไม่ใช้ก่อน`;
       return;
     }
-    const key = editing.key ?? slugKey(String(p.data.name), rows.map((r) => r.key));
-    await store.saveContent(rowKind(tab), key, p.data as Record<string, unknown>);
-    editing = null;
-    message = 'บันทึกแล้ว';
+    if (busy) return;
+    busy = true;
+    try {
+      const key = editing.key ?? slugKey(String(p.data.name), rows.map((r) => r.key));
+      if (await store.saveContent(rowKind(tab), key, p.data as Record<string, unknown>)) {
+        editing = null;
+        message = 'บันทึกแล้ว';
+      } else message = 'บันทึกไม่สำเร็จ ลองอีกครั้ง';
+    } finally {
+      busy = false;
+    }
   }
 
   function exportFile() {
@@ -84,10 +93,21 @@
     }
   }
   async function confirmImport() {
-    if (!plan) return;
-    for (const i of plan.items) await store.saveContent(i.kind, i.key, i.data);
-    message = `นำเข้าแล้ว ${plan.items.length} ชิ้น`;
-    plan = null;
+    if (!plan || busy) return;
+    const items = plan.items;
+    busy = true;
+    try {
+      let ok = 0;
+      for (const i of items) {
+        // Store what zod accepts, never the file's own object (planImport already checked that it parses).
+        const data = HB_SCHEMAS[kindOfRow(i.kind)!].parse(i.data) as Record<string, unknown>;
+        if (await store.saveContent(i.kind, i.key, data)) ok++;
+      }
+      message = `นำเข้าแล้ว ${ok} จาก ${items.length} ชิ้น`;
+      plan = null;
+    } finally {
+      busy = false;
+    }
   }
   function onKey(e: KeyboardEvent) {
     if (e.key === 'Escape') {
@@ -121,14 +141,14 @@
           <ul>{#each plan.plan.skip as s, n (n)}<li class="hint">{s.key}: {s.reason}</li>{/each}</ul>
         {/if}
         <div class="row">
-          <button class="btn primary" type="button" disabled={!plan.items.length} onclick={confirmImport}>ยืนยันนำเข้า</button>
+          <button class="btn primary" type="button" disabled={!plan.items.length || busy} onclick={confirmImport}>ยืนยันนำเข้า</button>
           <button class="btn" type="button" onclick={() => (plan = null)}>ยกเลิก</button>
         </div>
       {:else if editing}
         <h3>{editing.key ? `แก้${KIND_LABEL[tab]}` : `เพิ่ม${KIND_LABEL[tab]}`}</h3>
         <HbForm fields={FIELDS[tab]} bind:data={editing.data} {srd} {issues} />
         <div class="row">
-          <button class="btn primary" type="button" onclick={save}>บันทึก</button>
+          <button class="btn primary" type="button" disabled={busy} onclick={save}>บันทึก</button>
           <button class="btn" type="button" onclick={() => (editing = null)}>ยกเลิก</button>
         </div>
       {:else}
