@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { SrdZ } from '../data/schema';
 import raw from '../data/srd.json';
 import { CLASS_RULES } from '../overlay';
-import { featBoost, invocationOpen, meetsPrerequisite, metamagicOptions, plainName } from './srdText';
+import { repeatable } from '../builder/helpers';
+import { boostOf, featBoost, invocationOpen, meetsPrerequisite, metamagicOptions, plainName } from './srdText';
 
 const srd = SrdZ.parse(raw);
 const feat = (k: string) => srd.feats.find((f) => f.key === k)!;
@@ -59,5 +60,19 @@ describe('SRD prose for the level-up', () => {
   it('the Wizard Scholar picks only from its six skills', () => {
     const scholar = CLASS_RULES.find((r) => r.key === 'wizard')!.choices.find((p) => p.feature === 'Scholar');
     expect(scholar).toMatchObject({ kind: 'expertise', count: 1, from: ['arcana', 'history', 'investigation', 'medicine', 'nature', 'religion'] });
+  });
+});
+
+describe('structured feat fields win over the SRD text', () => {
+  it('boostOf reads the boost field, else the text', () => {
+    expect(boostOf({ desc: '', boost: { abilities: ['wis'], max: 20 } })).toEqual({ abilities: ['wis'], max: 20 });
+    expect(boostOf({ desc: 'Increase your Strength or Dexterity score by 1, to a maximum of 20.', boost: null })).toBeNull();
+    expect(boostOf({ desc: 'Increase your Strength or Dexterity score by 1, to a maximum of 20.' })).toEqual({ abilities: ['str', 'dex'], max: 20 });
+  });
+
+  it('repeatable reads the field, else the text', () => {
+    expect(repeatable({ desc: 'nothing', repeatable: true })).toBe(true);
+    expect(repeatable({ desc: 'You can take this feat more than once.', repeatable: false })).toBe(false);
+    expect(repeatable({ desc: 'You can take this feat more than once.' })).toBe(true);
   });
 });

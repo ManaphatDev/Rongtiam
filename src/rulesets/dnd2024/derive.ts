@@ -101,7 +101,7 @@ export function derive(c: D2024, srd: Srd, roomSkills: RoomSkill[] = []): Derive
   // Armor Class: worn armor, or the class's Unarmored Defense, plus a shield.
   const armor = c.armor ? srd.armor.find((a) => a.key === c.armor && a.category !== 'shield') : undefined;
   let ac: number;
-  if (armor) ac = armor.base + (armor.dex ? Math.min(mods.dex, armor.cap ?? Infinity) : 0);
+  if (armor) ac = armor.base + armor.bonus + (armor.dex ? Math.min(mods.dex, armor.cap ?? Infinity) : 0);
   else if (c.classKey === 'barbarian') ac = 10 + mods.dex + mods.con;
   else if (c.classKey === 'monk' && !c.shield) ac = 10 + mods.dex + mods.wis;
   else ac = 10 + mods.dex;
@@ -125,9 +125,9 @@ export function derive(c: D2024, srd: Srd, roomSkills: RoomSkill[] = []): Derive
     const m = mods[ability];
     return [{
       key: w.key, name: w.name, ability, proficient,
-      toHit: m + (proficient ? pb : 0),
-      damage: `${w.damage}${fmt(m)}`,
-      versatile: w.versatile ? `${w.versatile}${fmt(m)}` : null,
+      toHit: m + (proficient ? pb : 0) + w.bonus,
+      damage: `${w.damage}${fmt(m + w.bonus)}`,
+      versatile: w.versatile ? `${w.versatile}${fmt(m + w.bonus)}` : null,
       damageType: w.damageType, range: w.range, properties: w.properties, mastery: w.mastery,
     }];
   });

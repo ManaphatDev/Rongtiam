@@ -2,6 +2,7 @@
   import Pick from '../../builder/steps/Pick.svelte';
   import PickMany from '../../builder/steps/PickMany.svelte';
   import type { Srd } from '../../data/schema';
+import { hbLabel } from '../../homebrew/kinds';
   import { SKILLS, type Skill } from '../../i18n/th';
   import type { D2024 } from '../../model';
   import type { LevelDraft } from '../draft';
@@ -15,8 +16,14 @@
   const next = $derived(c.level + 1);
   const p = $derived(classPicks(c, srd, next));
   const opts = (ids: string[], name: (id: string) => string) => ids.map((id) => ({ id, label: name(id) }));
-  const weapon = (k: string) => srd.weapons.find((w) => w.key === k)?.name ?? k;
-  const feat = (k: string) => srd.feats.find((f) => f.key === k)?.name ?? k;
+  const weapon = (k: string) => {
+    const w = srd.weapons.find((x) => x.key === k);
+    return w ? hbLabel(k, w.name) : k;
+  };
+  const feat = (k: string) => {
+    const f = srd.feats.find((x) => x.key === k);
+    return f ? hbLabel(k, f.name) : k;
+  };
   const invHint = (n: string) => classOfChar(c, srd)?.invocations.find((i) => i.name === n)?.prerequisite ?? undefined;
 </script>
 

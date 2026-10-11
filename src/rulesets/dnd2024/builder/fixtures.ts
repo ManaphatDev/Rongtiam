@@ -14,7 +14,8 @@ export function autoDraft(srd: Srd, classKey: string, backgroundKey: string, spe
   Object.assign(d, { classKey, background: backgroundKey, species: speciesKey, name: 'Test' });
   const cls = classOf(d, srd)!;
   const bg = srd.backgrounds.find((b) => b.key === backgroundKey)!;
-  const species = speciesRulesOf(d)!;
+  // A homebrew species has no overlay entry: it asks for nothing.
+  const species = speciesRulesOf(d) ?? { key: speciesKey, choices: [] };
   const taken = new Set<string>(bg.skills);
   /** The first `n` skills of `pool` nobody has yet; they are taken from now on. */
   const free = (pool: string[], n: number) => {

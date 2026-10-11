@@ -100,6 +100,7 @@
     {#await import('../rulesets/dnd2024/RoomSkillsEditor.svelte') then { default: RoomSkillsEditor }}
       <RoomSkillsEditor {store} ctx={host.ctx} />
     {/await}
+    <button class="btn" onclick={() => { ui.sheetOpen = null; ui.levelUpOpen = null; ui.builderOpen = false; ui.homebrewOpen = true; }}>จัดการ homebrew</button>
   {/if}
   {#if ruleset === 'custom' && store.isGM}
     <button class="btn" onclick={() => { ui.sheetOpen = null; ui.templateOpen = true; }}>ออกแบบชีท (แม่แบบ)</button>

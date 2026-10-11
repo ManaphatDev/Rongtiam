@@ -251,6 +251,11 @@
         <TemplateEditor {store} ctx={host.ctx} onclose={() => (ui.templateOpen = false)} />
       {/await}
     {/if}
+    {#if ui.homebrewOpen && store.isGM}
+      {#await import('../rulesets/dnd2024/homebrew/HomebrewEditor.svelte') then { default: HomebrewEditor }}
+        <HomebrewEditor {store} ctx={host.ctx} onclose={() => (ui.homebrewOpen = false)} />
+      {/await}
+    {/if}
     {#if dice && stage}<InitiativeTracker {store} {ui} {host} {dice} {stage} />{/if}
     <button class="showui" onclick={() => { ui.sideHidden = false; ui.toolsHidden = false; }}>แสดงแผงและเครื่องมือ</button>
   </main>
