@@ -3,7 +3,7 @@
   // one batch of sheet patches at the end. All rules live in validateLevel()/levelUp(); this only shows them.
   import { tick } from 'svelte';
   import type { LevelUpProps } from '../../core/types';
-  import { getSrd } from '../index';
+  import { srdFor } from '../homebrew/merge';
   import { parseCharacter } from '../model';
   import { diffOps, levelUp } from './apply';
   import type { LevelDraft } from './draft';
@@ -17,9 +17,10 @@
   import SubclassStep from './steps/SubclassStep.svelte';
   import { validateLevel } from './validate';
 
-  let { id, data, isGM, rollDice, apply, onClose }: LevelUpProps = $props();
+  let { ctx, id, data, isGM, rollDice, apply, onClose }: LevelUpProps = $props();
 
-  const srd = getSrd();
+  // svelte-ignore state_referenced_locally
+  const srd = srdFor(ctx);
   // Mounted once per character and level (the host keys it), so the character being levelled is read once.
   // svelte-ignore state_referenced_locally
   const c = parseCharacter(data);

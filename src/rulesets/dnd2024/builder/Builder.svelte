@@ -4,7 +4,7 @@
   import { tick } from 'svelte';
   import TwoStepButton from '../../../ui/TwoStepButton.svelte';
   import type { BuilderProps } from '../../core/types';
-  import { getSrd } from '../index';
+  import { srdFor } from '../homebrew/merge';
   import { ROLL_EXPR, pointBuyStart, scoresFromRoll } from './abilities';
   import { build } from './build';
   import { emptyDraft, type Draft } from './draft';
@@ -21,12 +21,13 @@
   import SpellsStep from './steps/SpellsStep.svelte';
   import { validate, type StepId } from './validate';
 
-  let { roomId, rollDice, onDone, onClose, maxStartLevel }: BuilderProps = $props();
+  let { ctx, roomId, rollDice, onDone, onClose, maxStartLevel }: BuilderProps = $props();
 
-  const srd = getSrd();
+  // The SRD plus this room's homebrew; it follows the GM's edits while the builder is open.
+  const srd = $derived(srdFor(ctx));
   // The room never changes while this panel is mounted, so the draft is loaded once, from the first roomId.
   // svelte-ignore state_referenced_locally
-  const saved = loadDraft(roomId, srd);
+  const saved = loadDraft(roomId, srdFor(ctx));
   let draft = $state(saved.draft);
   let step = $state(saved.step);
   /** The furthest step visited: earlier steps can be revisited from the step list. */

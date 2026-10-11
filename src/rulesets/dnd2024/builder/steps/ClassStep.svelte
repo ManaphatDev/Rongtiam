@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Srd } from '../../data/schema';
+  import { isHomebrew } from '../../homebrew/kinds';
   import { ABILITY_TH, CLASSES_TH, SKILLS, type Skill } from '../../i18n/th';
   import type { Draft } from '../draft';
   import { backgroundOf, classOf, fightingStyleFeats, level1Points, proficientSkills, weaponPool } from '../helpers';
@@ -57,7 +58,7 @@
         value={draft.fightingStyle} onpick={(id) => (draft.fightingStyle = id)} />
     {:else if p.kind === 'masteries'}
       <PickMany legend="Weapon Mastery"
-        options={weaponPool(draft, srd, p.filter).map((w) => ({ id: w.key, label: w.name, hint: w.mastery ?? undefined }))}
+        options={weaponPool(draft, srd, p.filter).map((w) => ({ id: w.key, label: isHomebrew(w.key) ? `${w.name} · homebrew` : w.name, hint: w.mastery ?? undefined }))}
         selected={draft.masteries} max={p.count} onchange={(v) => (draft.masteries = v)} />
     {:else if p.kind === 'expertise'}
       <PickMany legend="Expertise (เชี่ยวชาญสกิล)" options={proficientSkills(draft, srd).map((s) => skillOpt(s))}

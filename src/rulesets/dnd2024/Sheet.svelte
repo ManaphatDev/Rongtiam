@@ -1,12 +1,14 @@
 <script lang="ts">
   import type { SheetProps } from '../core/types';
-  import { getSrd, viewOf } from './index';
+  import { viewOf } from './index';
+  import { roomItems, srdFor } from './homebrew/merge';
+  import { isHomebrew } from './homebrew/kinds';
   import { roomSkillsOf } from './roomSkills';
   import { ABILITIES, ABILITY_TH, BACKGROUNDS_TH, CLASSES_TH, SKILLS, SPECIES_TH, type Skill } from './i18n/th';
 
   let { data, ctx, editable, isGM, patch, roll, onLevelUp }: SheetProps = $props();
 
-  const srd = getSrd();
+  const srd = $derived(srdFor(ctx));
   const v = $derived(viewOf(data, ctx));
   /** Players may add their own skills unless the GM turned that off. */
   const canAddSkill = $derived(editable && (isGM || roomSkillsOf(ctx).allowPlayerSkills));
@@ -30,6 +32,16 @@
   let addLang = $state('');
   let addTool = $state('');
   const classSpells = $derived(srd.spells.filter((s) => s.classes.includes(c.classKey)).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name)));
+  const GONE = 'ไม่พบ (ถูกลบจาก homebrew)';
+  /** An option label: the name, marked when it is the room's homebrew. */
+  const tagged = (key: string, name: string) => (isHomebrew(key) ? `${name} · homebrew` : name);
+  const missingWeapons = $derived(c.weapons.filter((k) => !srd.weapons.some((w) => w.key === k)));
+  const missingSpells = $derived(c.spells.known.filter((k) => !srd.spells.some((s) => s.key === k)));
+  const armorGone = $derived(!!c.armor && !srd.armor.some((a) => a.key === c.armor));
+  const speciesGone = $derived(!srd.species.some((s) => s.key === c.species));
+  const backgroundGone = $derived(!srd.backgrounds.some((b) => b.key === c.background));
+  const items = $derived(roomItems(ctx));
+  let addItem = $state('');
   const knownSpells = $derived(c.spells.known.map((k) => srd.spells.find((s) => s.key === k)).filter((s) => !!s).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name)));
 </script>
 
@@ -70,10 +82,12 @@
         onclick={() => patch(['levelAllowed'], Math.min(20, (c.levelAllowed ?? c.level) + 1))}>อนุญาต +1</button>
     {/if}
     <label class="field">เผ่า<select aria-label="เผ่า" value={c.species} disabled={!editable} onchange={(e) => patch(['species'], e.currentTarget.value)}>
-      {#each srd.species as s (s.key)}<option value={s.key}>{SPECIES_TH[s.key] ?? s.name}</option>{/each}
+      {#if speciesGone}<option value={c.species}>{GONE}</option>{/if}
+      {#each srd.species as s (s.key)}<option value={s.key}>{tagged(s.key, SPECIES_TH[s.key] ?? s.name)}</option>{/each}
     </select></label>
     <label class="field">ฉากหลัง<select aria-label="ฉากหลัง" value={c.background} disabled={!editable} onchange={(e) => patch(['background'], e.currentTarget.value)}>
-      {#each srd.backgrounds as b (b.key)}<option value={b.key}>{BACKGROUNDS_TH[b.key] ?? b.name}</option>{/each}
+      {#if backgroundGone}<option value={c.background}>{GONE}</option>{/if}
+      {#each srd.backgrounds as b (b.key)}<option value={b.key}>{tagged(b.key, BACKGROUNDS_TH[b.key] ?? b.name)}</option>{/each}
     </select></label>
   </section>
   {#if !isGM && editable && (c.levelAllowed ?? c.level) <= c.level && c.level < 20}
@@ -182,11 +196,20 @@
             <li class="emptyline">ยังไม่มีอาวุธ</li>
           {/each}
         </ul>
+        {#if missingWeapons.length}
+          <ul class="plain-list">
+            {#each missingWeapons as k (k)}
+              <li><span class="nm">{GONE}</span>
+                {#if editable}<button class="btn small" aria-label={`เอา ${GONE} ออก`} onclick={() => patch(['weapons'], c.weapons.filter((w) => w !== k))}>✕</button>{/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
         {#if editable}
           <div class="row">
             <select aria-label="เพิ่มอาวุธ" bind:value={addWeapon}>
               <option value="">เลือกอาวุธ…</option>
-              {#each srd.weapons as w (w.key)}<option value={w.key}>{w.name} ({w.damage})</option>{/each}
+              {#each srd.weapons as w (w.key)}<option value={w.key}>{tagged(w.key, w.name)} ({w.damage}{w.bonus ? ` +${w.bonus}` : ''})</option>{/each}
             </select>
             <button class="btn small" disabled={!addWeapon} onclick={() => { patch(['weapons'], [...c.weapons, addWeapon]); addWeapon = ''; }}>เพิ่ม</button>
           </div>
@@ -194,7 +217,8 @@
         <div class="row">
           <label class="field">เกราะ<select aria-label="เกราะ" value={c.armor ?? ''} disabled={!editable} onchange={(e) => patch(['armor'], e.currentTarget.value || null)}>
             <option value="">ไม่ใส่เกราะ</option>
-            {#each srd.armor.filter((a) => a.category !== 'shield') as a (a.key)}<option value={a.key}>{a.name} ({a.category})</option>{/each}
+            {#if armorGone}<option value={c.armor}>{GONE}</option>{/if}
+            {#each srd.armor.filter((a) => a.category !== 'shield') as a (a.key)}<option value={a.key}>{tagged(a.key, a.name)} ({a.category})</option>{/each}
           </select></label>
           <label class="check"><input type="checkbox" checked={c.shield} disabled={!editable} onchange={(e) => patch(['shield'], e.currentTarget.checked)} /> โล่ (+2)</label>
         </div>
@@ -255,12 +279,21 @@
           <li class="emptyline">ยังไม่ได้เลือกเวท</li>
         {/each}
       </ul>
+      {#if missingSpells.length}
+        <ul class="plain-list">
+          {#each missingSpells as k (k)}
+            <li><span class="nm">{GONE}</span>
+              {#if editable}<button class="btn small" aria-label={`เอา ${GONE} ออก`} onclick={() => patch(['spells', 'known'], c.spells.known.filter((s) => s !== k))}>✕</button>{/if}
+            </li>
+          {/each}
+        </ul>
+      {/if}
       {#if editable}
         <div class="row">
           <select aria-label="เพิ่มเวท" bind:value={addSpell}>
             <option value="">เลือกเวทของอาชีพนี้…</option>
             {#each classSpells.filter((s) => !c.spells.known.includes(s.key)) as s (s.key)}
-              <option value={s.key}>{s.level ? `เลเวล ${s.level}` : 'แคนทริป'} · {s.name}</option>
+              <option value={s.key}>{s.level ? `เลเวล ${s.level}` : 'แคนทริป'} · {tagged(s.key, s.name)}</option>
             {/each}
           </select>
           <button class="btn small" disabled={!addSpell} onclick={() => { patch(['spells', 'known'], [...c.spells.known, addSpell]); addSpell = ''; }}>เพิ่ม</button>
@@ -281,6 +314,19 @@
       {/each}
     </ul>
     {#if editable}<button class="btn small" onclick={() => patch(['inventory'], [...c.inventory, { name: '', qty: 1, note: '' }])}>เพิ่มของ</button>{/if}
+    {#if editable && items.length}
+      <div class="row">
+        <select aria-label="เลือกของจากรายการของห้อง" bind:value={addItem}>
+          <option value="">เลือกของของห้อง…</option>
+          {#each items as it (it.key)}<option value={it.key}>{it.name}</option>{/each}
+        </select>
+        <button class="btn small" disabled={!addItem} onclick={() => {
+          const it = items.find((x) => x.key === addItem);
+          if (it) patch(['inventory'], [...c.inventory, { name: it.name, qty: 1, note: it.desc.slice(0, 200) }]);
+          addItem = '';
+        }}>เพิ่มจากรายการของห้อง</button>
+      </div>
+    {/if}
     <div class="row money">
       {#each ['pp', 'gp', 'sp', 'cp'] as m (m)}
         <label class="field narrow">{m.toUpperCase()}<input type="number" value={c.money[m as 'gp']} disabled={!editable}
@@ -290,12 +336,12 @@
   </section>
 
   <section class="block" aria-label="Feat ภาษา และเครื่องมือ">
-    {@render tags('Feat', 'feats', c.feats, (k) => srd.feats.find((f) => f.key === k)?.name ?? k)}
+    {@render tags('Feat', 'feats', c.feats, (k) => srd.feats.find((f) => f.key === k)?.name ?? (isHomebrew(k) ? GONE : k))}
     {#if editable}
       <div class="row">
         <select aria-label="เพิ่ม feat" bind:value={addFeat}>
           <option value="">เลือก feat…</option>
-          {#each srd.feats.filter((f) => !c.feats.includes(f.key)) as f (f.key)}<option value={f.key}>{f.name}</option>{/each}
+          {#each srd.feats.filter((f) => !c.feats.includes(f.key)) as f (f.key)}<option value={f.key}>{tagged(f.key, f.name)}</option>{/each}
         </select>
         <button class="btn small" disabled={!addFeat} onclick={() => { patch(['feats'], [...c.feats, addFeat]); addFeat = ''; }}>เพิ่ม</button>
       </div>
