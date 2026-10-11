@@ -136,4 +136,12 @@ describe('room content', () => {
       `insert into public.room_content (room_id, kind, key, data) values ($1, 'homebrew', 'x', '{}')`, [room]))).toBe('42501');
     expect(await as(db, alice).query(`update public.room_content set data = '{}' returning id`)).toHaveLength(0);
   });
+
+  it('homebrew rows are written only by a GM and read by every member', async () => {
+    await as(db, gm).query(`insert into public.room_content (room_id, kind, key, data) values ($1, 'hb-item', 'hb-ring', '{"name":"Ring","desc":""}')`, [room]);
+    expect(await as(db, alice).query(`select key from public.room_content where kind = 'hb-item'`)).toEqual([{ key: 'hb-ring' }]);
+    expect(await errCode(as(db, alice).query(
+      `insert into public.room_content (room_id, kind, key, data) values ($1, 'hb-weapon', 'hb-x', '{}')`, [room]))).toBe('42501');
+    expect(await as(db, alice).query(`delete from public.room_content where kind = 'hb-item' returning id`)).toHaveLength(0);
+  });
 });
