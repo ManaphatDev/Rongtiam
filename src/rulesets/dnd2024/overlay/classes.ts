@@ -69,7 +69,7 @@ export const CLASS_RULES: ClassRules[] = [
     ...common('Warlock Subclass'),
   ]),
   rules('wizard', [
-    { level: 2, feature: 'Scholar', kind: 'expertise', count: 1 },
+    { level: 2, feature: 'Scholar', kind: 'expertise', count: 1, from: ['arcana', 'history', 'investigation', 'medicine', 'nature', 'religion'] },
     ...common('Wizard Subclass'),
   ], { spellbook: 6 }),
 ];

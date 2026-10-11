@@ -8,7 +8,8 @@ export type MasteryFilter = 'any' | 'melee' | 'proficient';
 export type ChoiceBody =
   | { kind: 'fightingStyle' }
   | { kind: 'masteries'; filter: MasteryFilter; count: number }
-  | { kind: 'expertise'; count: number }
+  /** `from` limits the pick to some skills (the Wizard's Scholar); without it any proficient skill will do. */
+  | { kind: 'expertise'; count: number; from?: Skill[] }
   /** Divine Order, Primal Order. `extraCantrips` raises the number of cantrips the character picks. */
   | { kind: 'order'; options: { id: string; name: string; extraCantrips?: number }[] }
   | { kind: 'invocations'; count: number }
