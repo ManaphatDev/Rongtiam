@@ -71,9 +71,18 @@ describe('level gate', () => {
     expect(await errCode(patch(alice, c.id, [{ path: ['level'], value: 2 }]))).toBe('42501');
   });
 
-  it('a player cannot move a character out of dnd2024', async () => {
-    const c = await insert(alice, { name: 'Hero', level: 1 });
-    expect(await errCode(as(db, alice).query(`update public.characters set ruleset = 'custom' where id = $1`, [c.id]))).toBe('42501');
+  it('a player cannot move a character into or out of dnd2024, even with an UPDATE grant on ruleset', async () => {
+    const dnd = await insert(alice, { name: 'Hero', level: 1 });
+    const other = await insert(alice, { level: 9 }, 'custom');
+    // Players have no column grant on ruleset; give one so the trigger itself is what refuses.
+    await db.exec('grant update (ruleset) on public.characters to authenticated');
+    try {
+      expect(await errCode(as(db, alice).query(`update public.characters set ruleset = 'custom' where id = $1`, [dnd.id]))).toBe('42501');
+      expect(await errCode(as(db, alice).query(`update public.characters set ruleset = 'dnd2024' where id = $1`, [other.id]))).toBe('42501');
+    } finally {
+      await db.exec('revoke update (ruleset) on public.characters from authenticated');
+    }
+    expect(await errCode(as(db, alice).query(`update public.characters set ruleset = 'custom' where id = $1`, [dnd.id]))).toBe('42501'); // revoked again
   });
 
   it('a GM may set any level', async () => {
