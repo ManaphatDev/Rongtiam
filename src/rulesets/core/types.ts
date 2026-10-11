@@ -54,6 +54,19 @@ export interface BuilderProps {
   onClose: () => void;
 }
 
+/** What a ruleset's level-up wizard is given by the table. It is mounted again for each level. */
+export interface LevelUpProps {
+  ctx: RulesetContext;
+  /** The character's id (keys the saved draft) and its data at the level being left. */
+  id: string;
+  data: Record<string, unknown>;
+  isGM: boolean;
+  rollDice: BuilderProps['rollDice'];
+  /** Writes the level's changes to the sheet. */
+  apply: (ops: CharOp[]) => void;
+  onClose: () => void;
+}
+
 export interface RulesetModule {
   id: string;
   /** Thai name shown when choosing a system. */
@@ -77,4 +90,6 @@ export interface RulesetModule {
   Sheet: () => Promise<Component<SheetProps>>;
   /** A guided character builder, if the system has one (loaded lazily). */
   Builder?: () => Promise<Component<BuilderProps>>;
+  /** A guided level-up, if the system has one (loaded lazily). */
+  LevelUp?: () => Promise<Component<LevelUpProps>>;
 }
